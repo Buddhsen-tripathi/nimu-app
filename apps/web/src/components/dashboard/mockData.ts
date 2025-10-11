@@ -4,23 +4,25 @@ import { Conversation, Template, Folder } from "./types";
 export const INITIAL_CONVERSATIONS: Conversation[] = [
   {
     id: "c1",
-    title: "Marketing plan for launch",
+    title: "Product Demo Video - Veo3",
     updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     messageCount: 12,
-    preview: "Drafting a 4-week GTM plan with channels, KPIs, and budget...",
+    preview:
+      "Creating a product demo video using Veo3 model with custom prompts...",
     pinned: true,
-    folder: "Work Projects",
+    folder: "Video Projects",
     messages: [
       {
         id: makeId("m"),
         role: "user",
-        content: "Draft a 4-week GTM plan.",
+        content: "Generate a product demo video for our new app launch.",
         createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
       },
       {
         id: makeId("m"),
         role: "assistant",
-        content: "Sure — phases, owners, risks, and KPIs coming up.",
+        content:
+          "Sure — I'll create a professional demo video using Veo3. Starting generation now...",
         createdAt: new Date(
           Date.now() - 2 * 60 * 60 * 1000 + 60000
         ).toISOString(),
@@ -29,53 +31,53 @@ export const INITIAL_CONVERSATIONS: Conversation[] = [
   },
   {
     id: "c2",
-    title: "Research: vector databases vs RAG",
+    title: "Background Music - Ambient",
     updatedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
     messageCount: 22,
-    preview: "Compare pgvector, Milvus, and Weaviate. Cost + latency notes...",
+    preview: "Generating ambient background music for meditation app...",
     pinned: false,
-    folder: "Code Reviews",
+    folder: "Audio Projects",
     messages: [],
   },
   {
     id: "c3",
-    title: "Trip checklist – Paris with family",
+    title: "Tutorial Video - AI Basics",
     updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     messageCount: 9,
-    preview: "Packing list, museum tickets, metro pass options, and cafés...",
+    preview: "Educational video explaining AI concepts with visual examples...",
     pinned: false,
-    folder: "Personal",
+    folder: "Educational Content",
     messages: [],
   },
   {
     id: "c4",
-    title: "Refactor prompt templates for support",
+    title: "Social Media Video - Instagram",
     updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
     messageCount: 17,
     preview:
-      "Turn macros into reusable templates with variables and guardrails...",
+      "Creating short-form video content for Instagram stories and reels...",
     pinned: true,
-    folder: "Work Projects",
+    folder: "Video Projects",
     messages: [],
   },
   {
     id: "c5",
-    title: "Bug triage notes",
+    title: "Podcast Intro Music",
     updatedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
     messageCount: 6,
-    preview: "Priorities: login rate limit, streaming flicker, retry policy...",
+    preview: "Generating energetic intro music for tech podcast series...",
     pinned: false,
-    folder: "Work Projects",
+    folder: "Audio Projects",
     messages: [],
   },
   {
     id: "c6",
-    title: "AI agent: inbox clean-up flow",
+    title: "AI Model Comparison Video",
     updatedAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
     messageCount: 31,
-    preview: "Classifier → summarize → bulk actions with undo and logs...",
+    preview: "Video comparing different AI models for content generation...",
     pinned: false,
-    folder: "Work Projects",
+    folder: "Educational Content",
     messages: [],
   },
   {
@@ -133,50 +135,58 @@ export const INITIAL_CONVERSATIONS: Conversation[] = [
 export const INITIAL_TEMPLATES: Template[] = [
   {
     id: "t1",
-    name: "Bug Report",
-    content: `**Bug Report**
+    name: "Video Generation Prompt",
+    content: `**Video Generation Request**
 
-**Description:**
-Brief description of the issue
+**Type:** [Product Demo / Tutorial / Marketing / Social Media]
 
-**Steps to Reproduce:**
-1. Step one
-2. Step two
-3. Step three
+**Duration:** [15s / 30s / 60s / 2min]
 
-**Expected Behavior:**
-What should happen
+**Style:** [Professional / Casual / Artistic / Minimalist]
 
-**Actual Behavior:**
-What actually happens
+**Content Description:**
+Detailed description of what should be shown in the video
 
-**Environment:**
-- Browser/OS:
-- Version:
-- Additional context:`,
-    snippet: "Structured bug report template with steps to reproduce...",
+**Target Audience:**
+Who is this video for?
+
+**Key Messages:**
+- Main point 1
+- Main point 2
+- Main point 3
+
+**Visual Requirements:**
+- Color scheme
+- Logo/branding elements
+- Text overlays needed`,
+    snippet: "Structured video generation prompt template...",
     createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: "t2",
-    name: "Daily Standup",
-    content: `**Daily Standup Update**
+    name: "Audio Generation Prompt",
+    content: `**Audio Generation Request**
 
-**Yesterday:**
-- Completed task A
-- Made progress on task B
+**Type:** [Background Music / Voice Over / Sound Effects / Podcast Intro]
 
-**Today:**
-- Plan to work on task C
-- Continue with task B
+**Duration:** [10s / 30s / 60s / 3min / 10min]
 
-**Blockers:**
-- None / List any blockers here
+**Genre:** [Ambient / Electronic / Classical / Rock / Jazz / Hip-Hop]
 
-**Notes:**
-Any additional context or updates`,
-    snippet: "Daily standup format with yesterday, today, and blockers...",
+**Mood:** [Energetic / Calm / Dramatic / Upbeat / Melancholic]
+
+**Use Case:**
+What will this audio be used for?
+
+**Technical Requirements:**
+- Sample rate: [44.1kHz / 48kHz]
+- Bit depth: [16-bit / 24-bit]
+- Format: [MP3 / WAV / FLAC]
+
+**Reference Tracks:**
+Links or descriptions of similar audio you want`,
+    snippet: "Structured audio generation prompt template...",
     createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
   },
@@ -240,7 +250,7 @@ Additional context and discussion points`,
 ];
 
 export const INITIAL_FOLDERS: Folder[] = [
-  { id: "f1", name: "Work Projects" },
-  { id: "f2", name: "Personal" },
-  { id: "f3", name: "Code Reviews" },
+  { id: "f1", name: "Video Projects" },
+  { id: "f2", name: "Audio Projects" },
+  { id: "f3", name: "Educational Content" },
 ];

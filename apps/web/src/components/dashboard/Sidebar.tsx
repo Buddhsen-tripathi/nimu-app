@@ -229,7 +229,7 @@ export default function Sidebar({
                   <Asterisk className="h-4 w-4" />
                 </div>
                 <div className="text-sm font-semibold tracking-tight">
-                  AI Assistant
+                  Nimu App
                 </div>
               </div>
               <div className="ml-auto flex items-center gap-1">
@@ -264,7 +264,7 @@ export default function Sidebar({
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search…"
+                  placeholder="Search generations…"
                   onClick={() => setShowSearchModal(true)}
                   onFocus={() => setShowSearchModal(true)}
                   className="w-full rounded-full border border-zinc-200 bg-white py-2 pl-9 pr-3 text-sm outline-none ring-0 placeholder:text-zinc-400 focus:border-ring focus:ring-2 focus:ring-ring dark:border-zinc-800 dark:bg-zinc-950/50"
@@ -276,9 +276,9 @@ export default function Sidebar({
               <button
                 onClick={createNewChat}
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-white dark:text-zinc-900"
-                title="New Chat (⌘N)"
+                title="New Generation (⌘N)"
               >
-                <Plus className="h-4 w-4" /> Start New Chat
+                <Plus className="h-4 w-4" /> Start New Generation
               </button>
             </div>
 
@@ -320,7 +320,7 @@ export default function Sidebar({
               >
                 {recent.length === 0 ? (
                   <div className="select-none rounded-lg border border-dashed border-zinc-200 px-3 py-3 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-                    No conversations yet. Start a new one!
+                    No generations yet. Start creating videos and audios!
                   </div>
                 ) : (
                   recent.map((c) => (

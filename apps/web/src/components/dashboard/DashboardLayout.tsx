@@ -170,12 +170,12 @@ export default function DashboardLayout() {
     const id = Math.random().toString(36).slice(2);
     const item: Conversation = {
       id,
-      title: "New Chat",
+      title: "New Generation",
       updatedAt: new Date().toISOString(),
       messageCount: 0,
-      preview: "Say hello to start...",
+      preview: "Start creating videos or audio...",
       pinned: false,
-      folder: "Work Projects",
+      folder: "Video Projects",
       messages: [], // Ensure messages array is empty for new chats
     };
     setConversations((prev) => [item, ...prev]);
@@ -310,7 +310,7 @@ export default function DashboardLayout() {
           <span className="inline-flex h-4 w-4 items-center justify-center">
             ✱
           </span>{" "}
-          AI Assistant
+          Nimu App
         </div>
         <div className="ml-auto flex items-center gap-2">
           <GhostIconButton label="Schedule">
