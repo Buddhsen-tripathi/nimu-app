@@ -56,7 +56,6 @@ const ChatPane = forwardRef<any, ChatPaneProps>(function ChatPane(
 
   if (!conversation) return null;
 
-  const tags = ["Certified", "Personalized", "Experienced", "Helpful"];
   const messages = Array.isArray(conversation.messages)
     ? conversation.messages
     : [];
@@ -92,17 +91,6 @@ const ChatPane = forwardRef<any, ChatPaneProps>(function ChatPane(
         </div>
         <div className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
           Updated {timeAgo(conversation.updatedAt)} · {count} messages
-        </div>
-
-        <div className="mb-6 flex flex-wrap gap-2 border-b border-zinc-200 pb-5 dark:border-zinc-800">
-          {tags.map((t) => (
-            <span
-              key={t}
-              className="inline-flex items-center rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-700 dark:border-zinc-800 dark:text-zinc-200"
-            >
-              {t}
-            </span>
-          ))}
         </div>
 
         {messages.length === 0 ? (

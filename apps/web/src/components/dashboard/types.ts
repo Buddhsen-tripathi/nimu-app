@@ -31,11 +31,6 @@ export interface Folder {
   name: string;
 }
 
-export interface Chatbot {
-  name: string;
-  icon: string | React.ReactNode;
-}
-
 export interface CollapsedSections {
   pinned: boolean;
   recent: boolean;
@@ -82,12 +77,6 @@ export interface ChatPaneProps {
   onResendMessage: (messageId: string) => void;
   isThinking: boolean;
   onPauseThinking: () => void;
-}
-
-export interface HeaderProps {
-  createNewChat: () => void;
-  sidebarCollapsed: boolean;
-  setSidebarOpen: (open: boolean) => void;
 }
 
 export interface ConversationRowProps {
