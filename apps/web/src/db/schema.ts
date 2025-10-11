@@ -49,7 +49,10 @@ export const messageTypeEnum = pgEnum("message_type", [
 export const generationTypeEnum = pgEnum("generation_type", ["video", "audio"]);
 
 export const generationStatusEnum = pgEnum("generation_status", [
-  "pending",
+  "pending_clarification",
+  "pending_confirmation",
+  "confirmed",
+  "queued",
   "processing",
   "completed",
   "failed",
@@ -194,6 +197,8 @@ export const generation = pgTable("generation", {
   // Input/Output data
   prompt: text("prompt").notNull(),
   parameters: jsonb("parameters"), // Generation parameters (duration, style, etc.)
+  clarificationQuestions: jsonb("clarification_questions"), // AI-generated clarification questions
+  clarificationResponses: jsonb("clarification_responses"), // User responses to clarification
   resultUrl: text("result_url"), // URL to generated file
   resultFilePath: text("result_file_path"), // Local file path
   thumbnailUrl: text("thumbnail_url"), // For video thumbnails
@@ -207,6 +212,7 @@ export const generation = pgTable("generation", {
   // Processing info
   processingTime: integer("processing_time"), // Processing time in seconds
   queuePosition: integer("queue_position"), // Position in processing queue
+  bullmqJobId: text("bullmq_job_id"), // BullMQ job ID for tracking
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
   failedAt: timestamp("failed_at"),
