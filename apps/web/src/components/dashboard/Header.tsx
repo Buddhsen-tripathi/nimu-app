@@ -1,8 +1,26 @@
 "use client";
-import { Asterisk, MoreHorizontal, Menu, ChevronDown } from "lucide-react";
+import {
+  Asterisk,
+  MoreHorizontal,
+  Menu,
+  ChevronDown,
+  LogOut,
+  User,
+} from "lucide-react";
 import { useState } from "react";
+import { authClient } from "@/lib/auth-client";
 import GhostIconButton from "./GhostIconButton";
 import { HeaderProps, Chatbot } from "./types";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
 
 export default function Header({
   createNewChat,
@@ -11,6 +29,31 @@ export default function Header({
 }: HeaderProps) {
   const [selectedBot, setSelectedBot] = useState("GPT-5");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const { data: session, isPending } = authClient.useSession();
+
+  const handleSignOut = async () => {
+    try {
+      await authClient.signOut({
+        fetchOptions: {
+          onSuccess: () => {
+            toast.success("Signed out successfully");
+            window.location.href = "/";
+          },
+        },
+      });
+    } catch (error) {
+      toast.error("Failed to sign out");
+    }
+  };
+
+  const getUserInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   const chatbots: Chatbot[] = [
     { name: "GPT-5", icon: "🤖" },
@@ -75,6 +118,47 @@ export default function Header({
         <GhostIconButton label="More">
           <MoreHorizontal className="h-4 w-4" />
         </GhostIconButton>
+
+        {/* User Menu */}
+        {!isPending && session && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage
+                    src={session.user.image || ""}
+                    alt={session.user.name}
+                  />
+                  <AvatarFallback>
+                    {session.user.name ? (
+                      getUserInitials(session.user.name)
+                    ) : (
+                      <User className="h-4 w-4" />
+                    )}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <div className="flex flex-col space-y-1 p-2">
+                <p className="text-sm font-medium leading-none">
+                  {session.user.name}
+                </p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {session.user.email}
+                </p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleSignOut}
+                className="cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   );

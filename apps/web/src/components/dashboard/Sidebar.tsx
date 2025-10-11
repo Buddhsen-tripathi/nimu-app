@@ -12,6 +12,7 @@ import {
   Settings,
   Asterisk,
 } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
 import SidebarSection from "./SidebarSection";
 import ConversationRow from "./ConversationRow";
 import FolderRow from "./FolderRow";
@@ -51,6 +52,7 @@ export default function Sidebar({
   sidebarCollapsed = false,
   setSidebarCollapsed = () => {},
 }: SidebarProps) {
+  const { data: session, isPending } = authClient.useSession();
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
   const [showCreateTemplateModal, setShowCreateTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
@@ -423,12 +425,23 @@ export default function Sidebar({
               </div>
               <div className="mt-2 flex items-center gap-2 rounded-xl bg-zinc-50 p-2 dark:bg-zinc-800/60">
                 <div className="grid h-8 w-8 place-items-center rounded-full bg-zinc-900 text-xs font-bold text-white dark:bg-white dark:text-zinc-900">
-                  JD
+                  {isPending
+                    ? "..."
+                    : session?.user?.name
+                      ? session.user.name
+                          .split(" ")
+                          .map((word) => word[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)
+                      : "U"}
                 </div>
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">John Doe</div>
+                  <div className="truncate text-sm font-medium">
+                    {isPending ? "Loading..." : session?.user?.name || "User"}
+                  </div>
                   <div className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                    Pro workspace
+                    {isPending ? "" : session?.user?.email || ""}
                   </div>
                 </div>
               </div>
