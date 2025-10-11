@@ -283,6 +283,7 @@ export default function Sidebar({
             </div>
 
             <nav className="mt-4 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 pb-4">
+              {/* Pinned chats section - commented out for now
               <SidebarSection
                 icon={<Star className="h-4 w-4" />}
                 title="PINNED CHATS" // Renamed from "PINNED CONVERSATIONS" to "PINNED CHATS"
@@ -307,6 +308,7 @@ export default function Sidebar({
                   ))
                 )}
               </SidebarSection>
+              */}
 
               <SidebarSection
                 icon={<Clock className="h-4 w-4" />}
@@ -334,6 +336,7 @@ export default function Sidebar({
                 )}
               </SidebarSection>
 
+              {/* Folders section - commented out for now
               <SidebarSection
                 icon={<FolderIcon className="h-4 w-4" />}
                 title="FOLDERS"
@@ -365,7 +368,9 @@ export default function Sidebar({
                   ))}
                 </div>
               </SidebarSection>
+              */}
 
+              {/* Templates section - commented out for now
               <SidebarSection
                 icon={<FileText className="h-4 w-4" />} // Replaced StarOff with FileText for better template metaphor
                 title="TEMPLATES"
@@ -402,6 +407,7 @@ export default function Sidebar({
                   )}
                 </div>
               </SidebarSection>
+              */}
             </nav>
 
             <div className="mt-auto border-t border-zinc-200/60 px-3 py-3 dark:border-zinc-800">
