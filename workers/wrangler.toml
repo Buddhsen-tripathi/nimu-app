@@ -13,18 +13,18 @@ name = "nimu-generation-worker-prod"
 # Durable Objects bindings
 [[durable_objects.bindings]]
 name = "JOB_MANAGER"
-class_name = "JobManager"
+class_name = "JobManagerDO"
 script_name = "nimu-generation-worker"
 
 [[durable_objects.bindings]]
 name = "QUEUE_MANAGER"
-class_name = "QueueManager"
+class_name = "QueueManagerDO"
 script_name = "nimu-generation-worker"
 
 # Durable Objects classes
 [[migrations]]
 tag = "v1"
-new_classes = ["JobManager", "QueueManager"]
+new_classes = ["JobManagerDO", "QueueManagerDO"]
 
 # R2 bucket bindings
 [[r2_buckets]]
