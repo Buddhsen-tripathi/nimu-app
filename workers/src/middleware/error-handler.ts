@@ -34,8 +34,10 @@ export class AppError extends Error {
     this.details = details;
     this.isOperational = isOperational;
 
-    // Capture stack trace
-    Error.captureStackTrace(this, this.constructor);
+    // Capture stack trace (if available)
+    if ((Error as any).captureStackTrace) {
+      (Error as any).captureStackTrace(this, this.constructor);
+    }
   }
 }
 
@@ -122,7 +124,7 @@ export class ErrorHandler {
       error: appError.code,
       message: appError.message,
       timestamp: new Date().toISOString(),
-      requestId,
+      requestId: requestId || "unknown",
     };
 
     // Add details if available and in development
@@ -144,8 +146,8 @@ export class ErrorHandler {
    */
   static async catchAsync<T>(
     fn: () => Promise<T>,
-    request?: Request,
-    requestId?: string
+    _request?: Request,
+    _requestId?: string
   ): Promise<T> {
     try {
       return await fn();
@@ -305,7 +307,7 @@ export class ErrorHandler {
  */
 export function withErrorHandling<T extends any[], R>(
   fn: (...args: T) => Promise<R>,
-  requestId?: string
+  _requestId?: string
 ) {
   return async (...args: T): Promise<R> => {
     try {

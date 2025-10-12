@@ -19,7 +19,7 @@ export function getCloudflareConfig(): CloudflareConfig {
   return {
     workerUrl:
       process.env.CLOUDFLARE_WORKER_URL ||
-      "https://nimu-worker.your-domain.workers.dev",
+      "https://nimu-generation-worker.amaanrizvi73.workers.dev",
     apiKey: process.env.CLOUDFLARE_WORKER_API_KEY,
     timeout: parseInt(process.env.CLOUDFLARE_WORKER_TIMEOUT || "30000"),
     retryAttempts: parseInt(
@@ -33,7 +33,7 @@ export function getCloudflareConfig(): CloudflareConfig {
  * Default Cloudflare configuration
  */
 export const DEFAULT_CLOUDFLARE_CONFIG: CloudflareConfig = {
-  workerUrl: "https://nimu-worker.your-domain.workers.dev",
+  workerUrl: "https://nimu-generation-worker.amaanrizvi73.workers.dev",
   timeout: 30000,
   retryAttempts: 3,
   retryDelay: 1000,

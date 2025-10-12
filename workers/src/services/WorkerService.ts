@@ -44,7 +44,7 @@ export interface WorkerInfo {
 export class WorkerService {
   private config: WorkerServiceConfig;
   private durableObjectManager: DurableObjectManager;
-  private videoStorage: VideoStorageHelper;
+  // private _videoStorage: VideoStorageHelper; // TODO: Use for video operations
   private generationWorkflow: GenerationWorkflow;
   private workerInfo: WorkerInfo;
   private isRunning: boolean = false;
@@ -57,7 +57,7 @@ export class WorkerService {
   ) {
     this.config = config;
     this.durableObjectManager = durableObjectManager;
-    this.videoStorage = videoStorage; // TODO: Use for video operations
+    // this._videoStorage = videoStorage; // TODO: Use for video operations
 
     this.generationWorkflow = createGenerationWorkflow(
       {

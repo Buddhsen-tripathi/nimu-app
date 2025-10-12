@@ -53,9 +53,9 @@ export class RequestLogger {
       method: request.method,
       url: request.url,
       pathname: url.pathname,
-      userAgent,
-      ip,
-      userId,
+      userAgent: userAgent || "unknown",
+      ip: ip || "unknown",
+      userId: userId || "unknown",
       requestId,
     };
 

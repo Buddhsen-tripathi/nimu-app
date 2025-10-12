@@ -76,11 +76,18 @@ export function validateGenerationRequest(data: any): ValidationResult {
     }
   }
 
-  return {
-    valid: errors.length === 0,
-    errors: errors.length > 0 ? errors : undefined,
-    error: errors.length > 0 ? errors[0] : undefined,
-  };
+  if (errors.length === 0) {
+    return {
+      valid: true,
+      errors: [],
+    };
+  } else {
+    return {
+      valid: false,
+      errors: errors,
+      error: errors[0] || "Validation failed",
+    };
+  }
 }
 
 /**
@@ -115,11 +122,18 @@ export function validateClarificationRequest(data: any): ValidationResult {
     }
   }
 
-  return {
-    valid: errors.length === 0,
-    errors: errors.length > 0 ? errors : undefined,
-    error: errors.length > 0 ? errors[0] : undefined,
-  };
+  if (errors.length === 0) {
+    return {
+      valid: true,
+      errors: [],
+    };
+  } else {
+    return {
+      valid: false,
+      errors: errors,
+      error: errors[0] || "Validation failed",
+    };
+  }
 }
 
 /**
@@ -159,11 +173,18 @@ export function validateVideoUploadRequest(data: any): ValidationResult {
     errors.push("Content type must be a string");
   }
 
-  return {
-    valid: errors.length === 0,
-    errors: errors.length > 0 ? errors : undefined,
-    error: errors.length > 0 ? errors[0] : undefined,
-  };
+  if (errors.length === 0) {
+    return {
+      valid: true,
+      errors: [],
+    };
+  } else {
+    return {
+      valid: false,
+      errors: errors,
+      error: errors[0] || "Validation failed",
+    };
+  }
 }
 
 /**
@@ -207,11 +228,18 @@ export function validateWorkerRegistrationRequest(data: any): ValidationResult {
     }
   }
 
-  return {
-    valid: errors.length === 0,
-    errors: errors.length > 0 ? errors : undefined,
-    error: errors.length > 0 ? errors[0] : undefined,
-  };
+  if (errors.length === 0) {
+    return {
+      valid: true,
+      errors: [],
+    };
+  } else {
+    return {
+      valid: false,
+      errors: errors,
+      error: errors[0] || "Validation failed",
+    };
+  }
 }
 
 /**
@@ -230,11 +258,18 @@ export function validateHeartbeatRequest(data: any): ValidationResult {
     errors.push("Worker ID is required and must be a string");
   }
 
-  return {
-    valid: errors.length === 0,
-    errors: errors.length > 0 ? errors : undefined,
-    error: errors.length > 0 ? errors[0] : undefined,
-  };
+  if (errors.length === 0) {
+    return {
+      valid: true,
+      errors: [],
+    };
+  } else {
+    return {
+      valid: false,
+      errors: errors,
+      error: errors[0] || "Validation failed",
+    };
+  }
 }
 
 /**

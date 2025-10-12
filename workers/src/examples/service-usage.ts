@@ -231,8 +231,9 @@ export async function exampleWorkerIntegration(request: Request, env: any) {
   if (path.startsWith("/api/status/")) {
     const generationId = path.split("/")[3];
 
-    const jobResult =
-      await durableObjectManager.jobManager.getJobStatus(generationId);
+    const jobResult = await durableObjectManager.jobManager.getJobStatus(
+      generationId!
+    );
 
     return new Response(JSON.stringify(jobResult), {
       status: jobResult.success ? 200 : 404,

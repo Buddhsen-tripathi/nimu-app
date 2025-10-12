@@ -32,7 +32,7 @@ export interface WorkerInfo {
 
 export class QueueManager {
   private state: DurableObjectState;
-  private env: QueueManagerEnv;
+  // private _env: QueueManagerEnv; // TODO: Use for environment variables, bindings, etc.
 
   // In-memory cache for frequently accessed data
   private queue: QueueJob[] = [];
@@ -41,9 +41,9 @@ export class QueueManager {
   private isInitialized = false;
   private isPaused = false;
 
-  constructor(state: DurableObjectState, env: QueueManagerEnv) {
+  constructor(state: DurableObjectState, _env: QueueManagerEnv) {
     this.state = state;
-    this.env = env;
+    // this._env = env; // TODO: Use for environment variables, bindings, etc.
     // Note: env is available for future use (environment variables, bindings, etc.)
   }
 

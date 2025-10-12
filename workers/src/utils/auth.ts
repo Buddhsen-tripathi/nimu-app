@@ -22,7 +22,7 @@ export interface UserInfo {
  */
 export async function authenticateUser(
   request: Request,
-  env: any
+  _env: any
 ): Promise<AuthResult> {
   try {
     // Get authorization header
@@ -81,7 +81,7 @@ function extractUserIdFromToken(token: string): string | null {
  */
 export async function getUserInfo(
   token: string,
-  env: any
+  _env: any
 ): Promise<UserInfo | null> {
   try {
     const userId = extractUserIdFromToken(token);

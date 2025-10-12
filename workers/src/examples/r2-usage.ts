@@ -8,7 +8,6 @@
 import {
   VideoStorageHelper,
   FileValidator,
-  URLGenerator,
   ProgressTracker,
 } from "../utils/r2";
 import type { VideoStorageEnv } from "../r2";
@@ -33,10 +32,12 @@ export async function uploadVideoExample(
 
   // Upload video
   const result = await videoStorage.uploadVideo(file, {
+    id: `${generationId}_video`,
     generationId,
     userId,
     filename: file.name,
     contentType: file.type,
+    size: file.size,
     duration: 0, // Would be extracted from video metadata
     resolution: "1920x1080", // Would be extracted from video metadata
   });
@@ -149,14 +150,14 @@ export async function completeVideoWorkflowExample(
     console.log("Generating thumbnail...");
     const thumbnailResult = await generateThumbnailExample(
       env,
-      uploadResult.videoId
+      uploadResult.videoId!
     );
 
     // 3. Get video metadata
     console.log("Getting video metadata...");
     const videoStorage = new VideoStorageHelper(env);
     const metadataResult = await videoStorage.getVideoMetadata(
-      uploadResult.videoId
+      uploadResult.videoId!
     );
 
     if (!metadataResult.success || !metadataResult.metadata) {
@@ -164,7 +165,10 @@ export async function completeVideoWorkflowExample(
     }
 
     // 4. Generate signed URLs for different purposes
-    const publicUrl = await generateSecureUrlExample(env, uploadResult.videoId);
+    const publicUrl = await generateSecureUrlExample(
+      env,
+      uploadResult.videoId!
+    );
 
     return {
       success: true,
@@ -218,10 +222,12 @@ export async function uploadWithProgressExample(
     // Complete upload
     const videoStorage = new VideoStorageHelper(env);
     const result = await videoStorage.uploadVideo(file, {
+      id: `${generationId}_video`,
       generationId,
       userId,
       filename: file.name,
       contentType: file.type,
+      size: file.size,
     });
 
     // Complete tracking
@@ -296,10 +302,12 @@ export async function uploadWithRetryExample(
       console.log(`Upload attempt ${attempt}/${maxRetries}`);
 
       const result = await videoStorage.uploadVideo(file, {
+        id: `${generationId}_video`,
         generationId,
         userId,
         filename: file.name,
         contentType: file.type,
+        size: file.size,
       });
 
       if (result.success) {

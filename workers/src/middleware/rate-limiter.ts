@@ -51,7 +51,7 @@ export class RateLimiter {
       : this.getDefaultKey(request);
 
     const now = Date.now();
-    const windowStart = now - config.windowMs;
+    // const _windowStart = now - config.windowMs; // TODO: Use for window calculations
     const resetTime = now + config.windowMs;
 
     // Get or create entry
@@ -72,9 +72,7 @@ export class RateLimiter {
       limit: config.maxRequests,
       remaining,
       resetTime: entry.resetTime,
-      retryAfter: !allowed
-        ? Math.ceil((entry.resetTime - now) / 1000)
-        : undefined,
+      retryAfter: !allowed ? Math.ceil((entry.resetTime - now) / 1000) : 0,
     };
   }
 

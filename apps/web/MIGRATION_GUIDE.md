@@ -16,7 +16,7 @@ Add these environment variables to your `.env.local` file:
 
 ```bash
 # Cloudflare Worker Configuration
-CLOUDFLARE_WORKER_URL="https://nimu-worker.your-domain.workers.dev"
+CLOUDFLARE_WORKER_URL="https://nimu-generation-worker.amaanrizvi73.workers.dev"
 CLOUDFLARE_WORKER_API_KEY="optional-api-key-for-worker-auth"
 CLOUDFLARE_WORKER_TIMEOUT="30000"
 CLOUDFLARE_WORKER_RETRY_ATTEMPTS="3"
@@ -67,7 +67,7 @@ npx wrangler secret put AUTH_SECRET
 After deployment, update your `.env.local` with the actual Worker URL:
 
 ```bash
-CLOUDFLARE_WORKER_URL="https://nimu-worker.your-account.workers.dev"
+CLOUDFLARE_WORKER_URL="https://nimu-generation-worker.amaanrizvi73.workers.dev"
 ```
 
 ### 4. Run Database Migration
@@ -126,7 +126,7 @@ ALTER TABLE generation RENAME COLUMN bullmq_job_id TO worker_job_id;
 ### 1. Test Worker Health
 
 ```bash
-curl https://nimu-worker.your-domain.workers.dev/health
+curl https://nimu-generation-worker.amaanrizvi73.workers.dev/health
 ```
 
 ### 2. Test Generation Flow

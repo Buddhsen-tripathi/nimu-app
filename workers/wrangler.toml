@@ -24,7 +24,7 @@ script_name = "nimu-generation-worker"
 # Durable Objects classes
 [[migrations]]
 tag = "v1"
-new_classes = ["JobManagerDO", "QueueManagerDO"]
+new_sqlite_classes = ["JobManagerDO", "QueueManagerDO"]
 
 # R2 bucket bindings
 [[r2_buckets]]
@@ -33,14 +33,14 @@ bucket_name = "nimu-videos"
 preview_bucket_name = "nimu-videos-dev"
 
 # Cron triggers for cleanup
-[[triggers]]
+[triggers]
 crons = ["0 2 * * *"] # Daily at 2 AM UTC for cleanup
 
-# KV namespace for configuration (optional)
-[[kv_namespaces]]
-binding = "CONFIG"
-id = "your-kv-namespace-id"
-preview_id = "your-preview-kv-namespace-id"
+# KV namespace for configuration (optional) - commented out for now
+# [[kv_namespaces]]
+# binding = "CONFIG"
+# id = "your-kv-namespace-id"
+# preview_id = "your-preview-kv-namespace-id"
 
 # Environment variables (secrets)
 [vars]

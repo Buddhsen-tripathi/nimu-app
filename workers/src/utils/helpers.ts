@@ -249,7 +249,9 @@ export function isEmpty(value: any): boolean {
  * Get environment variable with fallback
  */
 export function getEnvVar(key: string, fallback?: string): string {
-  const value = process.env[key];
+  // Note: process.env is not available in Cloudflare Workers
+  // This would need to be passed from the Worker's env parameter
+  const value = (globalThis as any).process?.env?.[key];
   if (value === undefined && fallback === undefined) {
     throw new Error(`Environment variable ${key} is required`);
   }

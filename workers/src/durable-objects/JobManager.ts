@@ -27,15 +27,15 @@ export interface JobManagerEnv {
 
 export class JobManager {
   private state: DurableObjectState;
-  private env: JobManagerEnv;
+  // private _env: JobManagerEnv; // TODO: Use for environment variables, bindings, etc.
 
   // In-memory cache for frequently accessed data
   private jobsCache: Map<string, JobState> = new Map();
   private isInitialized = false;
 
-  constructor(state: DurableObjectState, env: JobManagerEnv) {
+  constructor(state: DurableObjectState, _env: JobManagerEnv) {
     this.state = state;
-    this.env = env;
+    // this._env = env; // TODO: Use for environment variables, bindings, etc.
     // Note: env is available for future use (environment variables, bindings, etc.)
   }
 

@@ -892,3 +892,6 @@ function generateId(): string {
 
 // Export the worker as default
 export default Worker;
+
+// Export Durable Objects
+export { JobManagerDO, QueueManagerDO } from "./durable-objects";
