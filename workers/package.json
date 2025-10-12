@@ -9,7 +9,7 @@
     "deploy": "wrangler deploy",
     "deploy:dev": "wrangler deploy --env development",
     "deploy:prod": "wrangler deploy --env production",
-    "setup": "chmod +x scripts/setup.sh && ./scripts/setup.sh",
+    "setup": "node scripts/setup.js",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
@@ -22,14 +22,14 @@
     "@cloudflare/workers-types": "^4.20240117.0"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
     "@types/node": "^20.10.6",
-    "wrangler": "^3.22.1",
-    "vitest": "^1.1.0",
+    "@typescript-eslint/eslint-plugin": "^6.17.0",
+    "@typescript-eslint/parser": "^6.17.0",
     "@vitest/ui": "^1.1.0",
     "eslint": "^8.56.0",
-    "@typescript-eslint/parser": "^6.17.0",
-    "@typescript-eslint/eslint-plugin": "^6.17.0"
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0",
+    "wrangler": "^4.42.2"
   },
   "keywords": [
     "cloudflare",
