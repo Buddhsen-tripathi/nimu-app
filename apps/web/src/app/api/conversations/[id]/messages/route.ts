@@ -33,7 +33,7 @@ const searchMessagesSchema = z.object({
 // GET /api/conversations/[id]/messages - Get messages for conversation
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth.api.getSession({
@@ -44,6 +44,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("query");
     const limit = parseInt(searchParams.get("limit") || "50");
@@ -70,9 +71,9 @@ export async function GET(
         );
       }
 
-      messages = await searchMessages(params.id, query, session.user.id);
+      messages = await searchMessages(id, query, session.user.id);
     } else {
-      messages = await getMessages(params.id, session.user.id);
+      messages = await getMessages(id, session.user.id);
     }
 
     // Apply limit
@@ -104,7 +105,7 @@ export async function GET(
 // POST /api/conversations/[id]/messages - Create new message
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth.api.getSession({
@@ -115,6 +116,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
     const body = await request.json();
     const validation = createMessageSchema.safeParse(body);
 
@@ -127,7 +129,7 @@ export async function POST(
 
     const messageData = {
       id: crypto.randomUUID(),
-      conversationId: params.id,
+      conversationId: id,
       role: validation.data.role,
       type: validation.data.type,
       content: validation.data.content,

@@ -1,7 +1,7 @@
+import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys, invalidateQueries } from "@/lib/react-query";
 import { useMessageStore } from "@/stores/useMessageStore";
-import { storeIntegration } from "@/stores/storeIntegration";
 import type { Message, NewMessage } from "@/db/schema";
 
 // API functions
@@ -86,52 +86,80 @@ const messagesApi = {
 export const useMessages = (conversationId: string) => {
   const { loadMessages, setLoading, setError } = useMessageStore();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.messages.list(conversationId),
     queryFn: () => messagesApi.getMessages(conversationId),
     enabled: !!conversationId,
-    onSuccess: (data) => {
-      loadMessages(conversationId, data);
-    },
-    onError: (error) => {
-      setError(
-        error instanceof Error ? error.message : "Failed to fetch messages"
-      );
-    },
-    onSettled: () => {
-      setLoading(false);
-    },
   });
+
+  React.useEffect(() => {
+    if (query.data) {
+      loadMessages(conversationId, query.data);
+    }
+  }, [query.data, conversationId, loadMessages]);
+
+  React.useEffect(() => {
+    if (query.error) {
+      setError(
+        query.error instanceof Error
+          ? query.error.message
+          : "Failed to fetch messages"
+      );
+    }
+  }, [query.error, setError]);
+
+  React.useEffect(() => {
+    setLoading(query.isLoading);
+  }, [query.isLoading, setLoading]);
+
+  return query;
 };
 
 export const useMessage = (id: string) => {
   const { setError } = useMessageStore();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.messages.detail(id),
     queryFn: () => messagesApi.getMessage(id),
     enabled: !!id,
-    onError: (error) => {
-      setError(
-        error instanceof Error ? error.message : "Failed to fetch message"
-      );
-    },
   });
+
+  React.useEffect(() => {
+    if (query.error) {
+      setError(
+        query.error instanceof Error
+          ? query.error.message
+          : "Failed to fetch message"
+      );
+    }
+  }, [query.error, setError]);
+
+  return query;
 };
 
-export const useSearchMessages = (conversationId: string, query: string) => {
+export const useSearchMessages = (
+  conversationId: string,
+  searchQuery: string
+) => {
   const { setError } = useMessageStore();
 
-  return useQuery({
-    queryKey: queryKeys.messages.search(conversationId, query),
-    queryFn: () => messagesApi.searchMessages(conversationId, query),
-    enabled: !!conversationId && !!query && query.length > 0,
-    onError: (error) => {
-      setError(
-        error instanceof Error ? error.message : "Failed to search messages"
-      );
-    },
+  const query = useQuery({
+    queryKey: queryKeys.messages.search(conversationId, searchQuery),
+    queryFn: () => messagesApi.searchMessages(conversationId, searchQuery),
+    enabled: !!conversationId && !!searchQuery && searchQuery.length > 0,
   });
+
+  React.useEffect(() => {
+    if (query.error) {
+      setError(
+        query.error instanceof Error
+          ? query.error.message
+          : "Failed to search messages"
+      );
+    }
+  }, [query.error, setError]);
+
+  return query;
 };
 
 // Mutation hooks

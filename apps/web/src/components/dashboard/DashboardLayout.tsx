@@ -12,6 +12,7 @@ import {
   useConversations,
   useCreateConversation,
 } from "@/hooks/queries/useConversations";
+import { useMessages, useSendMessage } from "@/hooks/queries/useMessages";
 
 export default function DashboardLayout() {
   const [mounted, setMounted] = useState(false);
@@ -24,9 +25,10 @@ export default function DashboardLayout() {
     error: conversationsError,
   } = useConversations();
   const createConversationMutation = useCreateConversation();
+  const sendMessageMutation = useSendMessage();
 
   // Type assertion for conversations
-  const typedConversations = conversations as Conversation[];
+  const typedConversations = conversations as any[];
 
   useEffect(() => {
     setMounted(true);
@@ -110,6 +112,9 @@ export default function DashboardLayout() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<Template[]>(INITIAL_TEMPLATES);
   const [folders, setFolders] = useState<Folder[]>(INITIAL_FOLDERS);
+
+  // Load messages for the selected conversation
+  const { data: messages = [] } = useMessages(selectedId || "");
 
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -210,17 +215,33 @@ export default function DashboardLayout() {
   function sendMessage(convId: string, content: string) {
     if (!content.trim()) return;
 
-    // TODO: Implement message sending to API
-    // For now, just show thinking state
-    setIsThinking(true);
-    setThinkingConvId(convId);
+    // Send the user message
+    sendMessageMutation.mutate(
+      {
+        conversationId: convId,
+        role: "user",
+        type: "text",
+        content: content.trim(),
+      },
+      {
+        onSuccess: () => {
+          // Show thinking state for assistant response
+          setIsThinking(true);
+          setThinkingConvId(convId);
 
-    const currentConvId = convId;
-    setTimeout(() => {
-      setIsThinking(false);
-      setThinkingConvId(null);
-      // TODO: Add assistant response via API
-    }, 2000);
+          // TODO: Add assistant response via API
+          // For now, just simulate thinking
+          setTimeout(() => {
+            setIsThinking(false);
+            setThinkingConvId(null);
+          }, 2000);
+        },
+        onError: (error) => {
+          console.error("Failed to send message:", error);
+          // You could add a toast notification here
+        },
+      }
+    );
   }
 
   function editMessage(convId: string, messageId: string, newContent: string) {
@@ -249,6 +270,17 @@ export default function DashboardLayout() {
   const composerRef = useRef<any>(null);
 
   const selected = typedConversations.find((c) => c.id === selectedId) || null;
+
+  // Create a conversation object with messages for the ChatPane
+  const selectedWithMessages = selected
+    ? ({
+        ...selected,
+        messages: messages || [],
+        preview: selected.title || "",
+        pinned: false,
+        folder: null,
+      } as any)
+    : null;
 
   if (!mounted || conversationsLoading) {
     return (
@@ -331,7 +363,7 @@ export default function DashboardLayout() {
         <main className="relative flex min-w-0 flex-1 flex-col">
           <ChatPane
             ref={composerRef}
-            conversation={selected}
+            conversation={selectedWithMessages}
             onSend={(content) => selected && sendMessage(selected.id, content)}
             onEditMessage={(messageId, newContent) =>
               selected && editMessage(selected.id, messageId, newContent)
