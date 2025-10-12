@@ -212,7 +212,7 @@ export const generation = pgTable("generation", {
   // Processing info
   processingTime: integer("processing_time"), // Processing time in seconds
   queuePosition: integer("queue_position"), // Position in processing queue
-  bullmqJobId: text("bullmq_job_id"), // BullMQ job ID for tracking
+  workerJobId: text("worker_job_id"), // Cloudflare Worker job ID for tracking
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
   failedAt: timestamp("failed_at"),

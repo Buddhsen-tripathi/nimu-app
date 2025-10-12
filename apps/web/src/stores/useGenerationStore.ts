@@ -17,7 +17,7 @@ interface GenerationStore {
     generationId: string,
     clarificationResponses: any
   ) => void;
-  confirmGeneration: (generationId: string, bullmqJobId?: string) => void;
+  confirmGeneration: (generationId: string, workerJobId?: string) => void;
   updateGenerationStatus: (
     generationId: string,
     status: Generation["status"],
@@ -88,18 +88,17 @@ export const useGenerationStore = create<GenerationStore>()(
 
             // Update the generation in all conversations
             Object.keys(updatedGenerations).forEach((conversationId) => {
-              updatedGenerations[conversationId] = updatedGenerations[
-                conversationId
-              ].map((gen) =>
-                gen.id === generationId
-                  ? {
-                      ...gen,
-                      clarificationResponses,
-                      status: "pending_confirmation" as const,
-                      updatedAt: new Date(),
-                    }
-                  : gen
-              );
+              updatedGenerations[conversationId] =
+                updatedGenerations[conversationId]?.map((gen) =>
+                  gen.id === generationId
+                    ? {
+                        ...gen,
+                        clarificationResponses,
+                        status: "pending_confirmation" as const,
+                        updatedAt: new Date(),
+                      }
+                    : gen
+                ) || [];
             });
 
             // Update active generations if it exists there
@@ -123,24 +122,23 @@ export const useGenerationStore = create<GenerationStore>()(
           });
         },
 
-        confirmGeneration: (generationId, bullmqJobId) => {
+        confirmGeneration: (generationId, workerJobId) => {
           set((state) => {
             const updatedGenerations = { ...state.generations };
 
             // Update the generation in all conversations
             Object.keys(updatedGenerations).forEach((conversationId) => {
-              updatedGenerations[conversationId] = updatedGenerations[
-                conversationId
-              ].map((gen) =>
-                gen.id === generationId
-                  ? {
-                      ...gen,
-                      status: "queued" as const,
-                      bullmqJobId,
-                      updatedAt: new Date(),
-                    }
-                  : gen
-              );
+              updatedGenerations[conversationId] =
+                updatedGenerations[conversationId]?.map((gen) =>
+                  gen.id === generationId
+                    ? {
+                        ...gen,
+                        status: "queued" as const,
+                        workerJobId: workerJobId || null,
+                        updatedAt: new Date(),
+                      }
+                    : gen
+                ) || [];
             });
 
             // Update active generations if it exists there
@@ -150,7 +148,7 @@ export const useGenerationStore = create<GenerationStore>()(
                   ? {
                       ...gen,
                       status: "queued" as const,
-                      bullmqJobId,
+                      workerJobId: workerJobId || null,
                       updatedAt: new Date(),
                     }
                   : gen
@@ -169,18 +167,17 @@ export const useGenerationStore = create<GenerationStore>()(
 
             // Update the generation in all conversations
             Object.keys(updatedGenerations).forEach((conversationId) => {
-              updatedGenerations[conversationId] = updatedGenerations[
-                conversationId
-              ].map((gen) =>
-                gen.id === generationId
-                  ? {
-                      ...gen,
-                      status,
-                      ...additionalData,
-                      updatedAt: new Date(),
-                    }
-                  : gen
-              );
+              updatedGenerations[conversationId] =
+                updatedGenerations[conversationId]?.map((gen) =>
+                  gen.id === generationId
+                    ? {
+                        ...gen,
+                        status,
+                        ...additionalData,
+                        updatedAt: new Date(),
+                      }
+                    : gen
+                ) || [];
             });
 
             // Update active generations
@@ -238,7 +235,7 @@ export const useGenerationStore = create<GenerationStore>()(
         getGenerationById: (generationId) => {
           const state = get();
           for (const conversationId in state.generations) {
-            const generation = state.generations[conversationId].find(
+            const generation = state.generations[conversationId]?.find(
               (gen) => gen.id === generationId
             );
             if (generation) return generation;

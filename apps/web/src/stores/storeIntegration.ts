@@ -98,8 +98,8 @@ export const generationStoreIntegration = {
   },
 
   // Confirm generation after successful confirmation
-  confirmGeneration: (generationId: string, bullmqJobId?: string) => {
-    useGenerationStore.getState().confirmGeneration(generationId, bullmqJobId);
+  confirmGeneration: (generationId: string, workerJobId?: string) => {
+    useGenerationStore.getState().confirmGeneration(generationId, workerJobId);
   },
 
   // Update generations for a conversation

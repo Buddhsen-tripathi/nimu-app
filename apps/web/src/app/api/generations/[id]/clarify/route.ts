@@ -5,12 +5,13 @@ import {
   getGenerationById,
   updateGenerationClarification,
 } from "@/lib/queries/generations";
+import { createWorkerClient } from "@/lib/cloudflare";
 
 // Validation schema for clarification submission
 const submitClarificationSchema = z.object({
-  clarificationResponses: z.record(z.any()),
+  clarificationResponses: z.record(z.string(), z.any()),
   // Optional: AI can generate new clarification questions
-  clarificationQuestions: z.record(z.any()).optional(),
+  clarificationQuestions: z.record(z.string(), z.any()).optional(),
 });
 
 // POST /api/generations/[id]/clarify - Submit clarification response
@@ -49,12 +50,12 @@ export async function POST(
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: "Invalid input", details: validation.error.errors },
+        { error: "Invalid input", details: validation.error.issues },
         { status: 400 }
       );
     }
 
-    // Update the generation with clarification responses
+    // Update the generation with clarification responses in database
     const updatedGeneration = await updateGenerationClarification(
       params.id,
       validation.data.clarificationQuestions ||
@@ -70,15 +71,34 @@ export async function POST(
       );
     }
 
-    // TODO: Here you would typically trigger AI processing to analyze
-    // the clarification responses and potentially generate new questions
-    // or move to confirmation stage. For now, we'll move directly to
-    // pending_confirmation status.
+    // Send clarification to Cloudflare Worker
+    const workerClient = createWorkerClient();
+
+    // Use the worker generation ID if available, otherwise use the database ID
+    const workerGenerationId =
+      (generation as any).workerGenerationId || params.id;
+
+    const workerResponse = await workerClient.submitClarification(
+      workerGenerationId,
+      {
+        clarificationResponses: validation.data.clarificationResponses,
+        clarificationQuestions: validation.data.clarificationQuestions,
+      }
+    );
+
+    if (!workerResponse.success) {
+      console.error(
+        "Worker clarification submission failed:",
+        workerResponse.error
+      );
+      // Continue anyway - the database is updated
+    }
 
     return NextResponse.json({
       generation: updatedGeneration,
       message: "Clarification submitted successfully",
       nextStep: "confirmation",
+      workerSuccess: workerResponse.success,
     });
   } catch (error) {
     console.error("Error submitting clarification:", error);

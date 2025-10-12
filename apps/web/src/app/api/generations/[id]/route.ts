@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getGenerationById } from "@/lib/queries/generations";
+import { createWorkerClient } from "@/lib/cloudflare";
 
 // GET /api/generations/[id] - Get generation details and status
 export async function GET(
@@ -25,9 +26,34 @@ export async function GET(
       );
     }
 
+    // Get real-time status from Worker if available
+    let workerStatus = null;
+    if (
+      (generation as any).workerGenerationId ||
+      generation.status === "queued" ||
+      generation.status === "processing"
+    ) {
+      try {
+        const workerClient = createWorkerClient();
+
+        const workerGenerationId =
+          (generation as any).workerGenerationId || params.id;
+        const workerResponse =
+          await workerClient.getGenerationStatus(workerGenerationId);
+
+        if (workerResponse.success) {
+          workerStatus = workerResponse.data;
+        }
+      } catch (error) {
+        console.warn("Failed to get worker status:", error);
+        // Continue without worker status
+      }
+    }
+
     // Return generation with additional metadata
     const response = {
       ...generation,
+      workerStatus,
       // Add computed fields
       isActive: [
         "pending_clarification",

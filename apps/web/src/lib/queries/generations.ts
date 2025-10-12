@@ -191,7 +191,7 @@ export async function updateGenerationClarification(
 export async function confirmGeneration(
   id: string,
   userId: string,
-  bullmqJobId?: string
+  workerJobId?: string
 ) {
   // Verify user owns the generation
   const genWithConv = await db
@@ -213,7 +213,7 @@ export async function confirmGeneration(
 
   const updateData: Partial<Generation> = {
     status: "queued",
-    bullmqJobId,
+    workerJobId,
     updatedAt: new Date(),
   };
 

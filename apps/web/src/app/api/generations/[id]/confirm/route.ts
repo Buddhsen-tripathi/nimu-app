@@ -4,6 +4,7 @@ import {
   getGenerationById,
   confirmGeneration,
 } from "@/lib/queries/generations";
+import { createWorkerClient } from "@/lib/cloudflare";
 
 // POST /api/generations/[id]/confirm - Confirm generation and start processing
 export async function POST(
@@ -44,31 +45,46 @@ export async function POST(
       );
     }
 
-    // Generate a BullMQ job ID (in a real implementation, this would come from the queue)
-    const bullmqJobId = `job_${crypto.randomUUID()}`;
+    // Send confirmation to Cloudflare Worker
+    const workerClient = createWorkerClient();
+
+    // Use the worker generation ID if available, otherwise use the database ID
+    const workerGenerationId =
+      (generation as any).workerGenerationId || params.id;
+
+    const workerResponse =
+      await workerClient.confirmGeneration(workerGenerationId);
+
+    if (!workerResponse.success) {
+      console.error("Worker confirmation failed:", workerResponse.error);
+      return NextResponse.json(
+        { error: "Failed to confirm generation with worker" },
+        { status: 500 }
+      );
+    }
+
+    // Generate a worker job ID
+    const workerJobId =
+      workerResponse.data?.operationId || `worker_${crypto.randomUUID()}`;
 
     // Confirm the generation and update status to "queued"
     const confirmedGeneration = await confirmGeneration(
       params.id,
       session.user.id,
-      bullmqJobId
+      workerJobId
     );
 
     if (!confirmedGeneration) {
       return NextResponse.json(
-        { error: "Failed to confirm generation" },
+        { error: "Failed to confirm generation in database" },
         { status: 500 }
       );
     }
 
-    // TODO: In a real implementation, you would:
-    // 1. Add the job to the BullMQ queue here
-    // 2. The worker would pick up the job and start processing
-    // 3. Update the generation status to "processing" when the worker starts
-
     return NextResponse.json({
       generation: confirmedGeneration,
-      jobId: bullmqJobId,
+      jobId: workerJobId,
+      operationId: workerResponse.data?.operationId,
       message: "Generation confirmed and queued for processing",
       status: "queued",
     });

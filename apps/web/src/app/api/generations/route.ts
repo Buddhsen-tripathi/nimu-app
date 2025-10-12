@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { createGeneration } from "@/lib/queries/generations";
+import { createWorkerClient } from "@/lib/cloudflare";
 
 // Validation schema for generation request
 const createGenerationSchema = z.object({
@@ -19,7 +20,7 @@ const createGenerationSchema = z.object({
   ]),
   model: z.string().min(1).max(100),
   prompt: z.string().min(1).max(2000),
-  parameters: z.record(z.any()).optional(),
+  parameters: z.record(z.string(), z.any()).optional(),
 });
 
 // POST /api/generations - Create generation request
@@ -38,11 +39,15 @@ export async function POST(request: NextRequest) {
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: "Invalid input", details: validation.error.errors },
+        { error: "Invalid input", details: validation.error.issues },
         { status: 400 }
       );
     }
 
+    // Initialize Worker client
+    const workerClient = createWorkerClient();
+
+    // Create generation in database first
     const generationData = {
       id: crypto.randomUUID(),
       conversationId: validation.data.conversationId,
@@ -60,7 +65,37 @@ export async function POST(request: NextRequest) {
 
     const generation = await createGeneration(generationData, session.user.id);
 
-    return NextResponse.json(generation, { status: 201 });
+    // Send generation request to Cloudflare Worker
+    const workerResponse = await workerClient.createGeneration(
+      session.user.id,
+      {
+        prompt: validation.data.prompt,
+        parameters: {
+          ...validation.data.parameters,
+          model: validation.data.model,
+          provider: validation.data.provider,
+          type: validation.data.type,
+          conversationId: validation.data.conversationId,
+          messageId: validation.data.messageId,
+        },
+      }
+    );
+
+    if (!workerResponse.success) {
+      console.error("Worker generation creation failed:", workerResponse.error);
+      // Return the database generation even if Worker fails
+      // The Worker can retry later
+    }
+
+    return NextResponse.json(
+      {
+        ...generation,
+        workerGenerationId: workerResponse.data?.generationId,
+        clarificationRequired: workerResponse.data?.clarificationRequired,
+        clarificationQuestions: workerResponse.data?.clarificationQuestions,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error creating generation:", error);
 

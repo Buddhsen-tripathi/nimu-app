@@ -5,6 +5,7 @@ import {
   getGenerationById,
   updateGenerationStatus,
 } from "@/lib/queries/generations";
+import { createWorkerClient } from "@/lib/cloudflare";
 
 // Validation schema for status updates
 const updateStatusSchema = z.object({
@@ -31,6 +32,78 @@ const updateStatusSchema = z.object({
   cost: z.number().optional(),
   tokensUsed: z.number().optional(),
 });
+
+// GET /api/generations/[id]/status - Get generation status from Worker
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // First, verify the generation exists and user has access
+    const generation = await getGenerationById(params.id, session.user.id);
+
+    if (!generation) {
+      return NextResponse.json(
+        { error: "Generation not found" },
+        { status: 404 }
+      );
+    }
+
+    // Get status from Cloudflare Worker
+    const workerClient = createWorkerClient();
+
+    // Use the worker generation ID if available, otherwise use the database ID
+    const workerGenerationId =
+      (generation as any).workerGenerationId || params.id;
+
+    const workerResponse =
+      await workerClient.getGenerationStatus(workerGenerationId);
+
+    if (!workerResponse.success) {
+      console.error("Worker status check failed:", workerResponse.error);
+      // Return database status if Worker fails
+      return NextResponse.json({
+        generation,
+        workerStatus: null,
+        error: workerResponse.error,
+      });
+    }
+
+    return NextResponse.json({
+      generation,
+      workerStatus: workerResponse.data,
+      lastUpdated: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error getting generation status:", error);
+
+    // Handle specific error cases
+    if (error instanceof Error) {
+      if (error.message.includes("not found")) {
+        return NextResponse.json(
+          { error: "Generation not found" },
+          { status: 404 }
+        );
+      }
+      if (error.message.includes("access denied")) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
+    }
+
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
 
 // PUT /api/generations/[id]/status - Update generation status
 export async function PUT(

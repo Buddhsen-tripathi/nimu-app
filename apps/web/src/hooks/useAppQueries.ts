@@ -176,8 +176,8 @@ export const useRealtimeQueries = () => {
       return activeGenerations.map((gen) => ({
         generation: gen,
         pollQuery: usePollGeneration(gen.id, true),
-        jobPollQuery: gen.bullmqJobId
-          ? usePollJobStatus(gen.bullmqJobId, true)
+        jobPollQuery: gen.workerJobId
+          ? usePollJobStatus(gen.workerJobId, true)
           : null,
       }));
     },
