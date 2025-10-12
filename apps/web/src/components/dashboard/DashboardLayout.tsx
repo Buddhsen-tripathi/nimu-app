@@ -212,8 +212,35 @@ export default function DashboardLayout() {
     ]);
   }
 
+  function checkForGenerationRequest(content: string): boolean {
+    const lowerContent = content.toLowerCase();
+    const generationKeywords = [
+      "create a video",
+      "make a video",
+      "generate a video",
+      "video of",
+      "create video",
+      "make video",
+      "generate video",
+      "sunset",
+      "mountain",
+      "ocean",
+      "forest",
+      "city",
+      "car",
+      "person",
+      "animal",
+    ];
+
+    return generationKeywords.some((keyword) => lowerContent.includes(keyword));
+  }
+
   function sendMessage(convId: string, content: string) {
     if (!content.trim()) return;
+
+    // Show thinking state
+    setIsThinking(true);
+    setThinkingConvId(convId);
 
     // Send the user message
     sendMessageMutation.mutate(
@@ -224,24 +251,90 @@ export default function DashboardLayout() {
         content: content.trim(),
       },
       {
-        onSuccess: () => {
-          // Show thinking state for assistant response
-          setIsThinking(true);
-          setThinkingConvId(convId);
+        onSuccess: async (userMessage) => {
+          try {
+            // Check if this looks like a generation request
+            const isGenerationRequest = checkForGenerationRequest(
+              content.trim()
+            );
 
-          // TODO: Add assistant response via API
-          // For now, just simulate thinking
-          setTimeout(() => {
+            if (isGenerationRequest) {
+              // Trigger generation workflow via API
+              await triggerGeneration(convId, userMessage.id, content.trim());
+            } else {
+              // For general chat, just send a simple AI response
+              setTimeout(async () => {
+                await sendMessageMutation.mutateAsync({
+                  conversationId: convId,
+                  role: "assistant",
+                  type: "text",
+                  content:
+                    "I understand! I'm here to help you create amazing videos and audio content. You can ask me to generate videos by saying things like 'Create a video of a sunset over mountains' or 'Make a 30-second video of ocean waves'.",
+                });
+              }, 1000);
+            }
+          } catch (error) {
+            console.error("Failed to process message:", error);
+          } finally {
             setIsThinking(false);
             setThinkingConvId(null);
-          }, 2000);
+          }
         },
         onError: (error) => {
           console.error("Failed to send message:", error);
-          // You could add a toast notification here
+          setIsThinking(false);
+          setThinkingConvId(null);
         },
       }
     );
+  }
+
+  async function triggerGeneration(
+    conversationId: string,
+    messageId: string,
+    prompt: string
+  ) {
+    try {
+      // Create generation request via your existing API
+      const response = await fetch("/api/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          conversationId,
+          messageId,
+          type: "video", // Default to video for now
+          provider: "veo3", // Default provider
+          model: "veo-3", // Default model
+          prompt: prompt,
+          parameters: {
+            // Let the worker extract parameters from the prompt
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create generation");
+      }
+
+      const generation = await response.json();
+      console.log("Generation created:", generation);
+
+      // The worker will handle sending AI responses and clarifications
+      // We don't need to send additional messages here
+    } catch (error) {
+      console.error("Failed to trigger generation:", error);
+
+      // Send error message
+      await sendMessageMutation.mutateAsync({
+        conversationId,
+        role: "assistant",
+        type: "error",
+        content:
+          "I apologize, but I encountered an error while processing your generation request. Please try again.",
+      });
+    }
   }
 
   function editMessage(convId: string, messageId: string, newContent: string) {

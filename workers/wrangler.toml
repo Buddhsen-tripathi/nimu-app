@@ -61,3 +61,13 @@ command = "npm run build"
 ip = "127.0.0.1"
 port = 8787
 local_protocol = "http"
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability]
+enabled = false
+
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true

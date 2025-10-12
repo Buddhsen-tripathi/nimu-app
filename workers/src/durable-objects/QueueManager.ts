@@ -660,6 +660,54 @@ export class QueueManager {
         });
       }
 
+      // Handle method calls from callDurableObject
+      if (method === "POST") {
+        const body = await request.json();
+        const args = Array.isArray(body) ? body : [];
+
+        if (path === "/addToQueue") {
+          const result = await this.addToQueue(args[0]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/getNextJob") {
+          const result = await this.getNextJob(args[0]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/completeJob") {
+          const result = await this.completeJob(args[0]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/failJob") {
+          const result = await this.failJob(args[0]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/registerWorker") {
+          const result = await this.registerWorker(args[0], args[1]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/updateWorkerHeartbeat") {
+          const result = await this.updateWorkerHeartbeat(args[0]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      }
+
       return new Response("Not Found", { status: 404 });
     } catch (error) {
       console.error("QueueManager fetch error:", error);

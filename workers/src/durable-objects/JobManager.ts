@@ -621,6 +621,75 @@ export class JobManager {
         });
       }
 
+      // Handle method calls from callDurableObject
+      if (method === "POST") {
+        const body = await request.json();
+        const args = Array.isArray(body) ? body : [];
+
+        if (path === "/createJob") {
+          const result = await this.createJob(args[0]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/getJobStatus") {
+          const result = await this.getJobStatus(args[0]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/updateJobStatus") {
+          const result = await this.updateJobStatus(args[0], args[1], args[2]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/updateProgress") {
+          const result = await this.updateProgress(args[0], args[1], args[2]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/completeJob") {
+          const result = await this.completeJob(args[0], args[1]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/failJob") {
+          const result = await this.failJob(args[0], args[1]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/retryJob") {
+          const result = await this.retryJob(args[0]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/cancelJob") {
+          const result = await this.cancelJob(args[0]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/getJobHistory") {
+          const result = await this.getJobHistory(args[0]);
+          return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      }
+
       return new Response("Not Found", { status: 404 });
     } catch (error) {
       console.error("JobManager fetch error:", error);

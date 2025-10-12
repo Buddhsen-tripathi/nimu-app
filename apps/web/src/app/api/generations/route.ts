@@ -44,9 +44,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Initialize Worker client
-    const workerClient = createWorkerClient();
-
     // Create generation in database first
     const generationData = {
       id: crypto.randomUUID(),
@@ -64,6 +61,12 @@ export async function POST(request: NextRequest) {
     };
 
     const generation = await createGeneration(generationData, session.user.id);
+
+    // Initialize Worker client with user ID as auth token
+    const workerClient = createWorkerClient(
+      undefined, // Use default worker URL
+      `dev_${session.user.id}` // Use dev token format for authentication
+    );
 
     // Send generation request to Cloudflare Worker
     const workerResponse = await workerClient.createGeneration(
