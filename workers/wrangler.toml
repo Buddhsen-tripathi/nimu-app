@@ -48,6 +48,9 @@ ENVIRONMENT = "development"
 MAX_CONCURRENT_JOBS = "3"
 JOB_TIMEOUT = "300000" # 5 minutes
 CLEANUP_RETENTION_DAYS = "7"
+MAX_FILE_SIZE = "524288000" # 500MB in bytes
+R2_BASE_URL = "https://nimu-videos.your-domain.com" # Replace with your actual domain
+THUMBNAIL_GENERATION_ENABLED = "true"
 
 # Build configuration
 [build]
