@@ -1,153 +1,256 @@
-// Input validation utilities for Cloudflare Workers
-
-export interface ValidationError {
-  field: string;
-  message: string;
-  value?: any;
-}
+/**
+ * Validation Utilities
+ *
+ * Provides request validation functionality for the Cloudflare Worker.
+ */
 
 export interface ValidationResult {
-  success: boolean;
-  errors: ValidationError[];
-  data?: any;
+  valid: boolean;
+  errors?: string[];
+  error?: string; // For backward compatibility
+}
+
+export interface GenerationRequest {
+  prompt: string;
+  parameters?: Record<string, any>;
+  provider?: string;
+  model?: string;
+  priority?: number;
+}
+
+export interface ClarificationRequest {
+  response: string;
+  questionId?: string;
 }
 
 /**
- * Validate generation request data
+ * Validate generation request
  */
 export function validateGenerationRequest(data: any): ValidationResult {
-  const errors: ValidationError[] = [];
+  const errors: string[] = [];
 
-  // Required fields
-  if (!data.conversationId || typeof data.conversationId !== "string") {
-    errors.push({
-      field: "conversationId",
-      message: "Conversation ID is required and must be a string",
-    });
+  // Check if data is an object
+  if (!data || typeof data !== "object") {
+    errors.push("Request body must be an object");
   }
 
-  if (!data.messageId || typeof data.messageId !== "string") {
-    errors.push({
-      field: "messageId",
-      message: "Message ID is required and must be a string",
-    });
+  // Check required fields
+  if (!data.prompt || typeof data.prompt !== "string") {
+    errors.push("Prompt is required and must be a string");
   }
 
-  if (!data.type || !["video", "audio"].includes(data.type)) {
-    errors.push({
-      field: "type",
-      message: 'Type must be either "video" or "audio"',
-    });
+  // Validate prompt length
+  if (data.prompt && data.prompt.length < 3) {
+    errors.push("Prompt must be at least 3 characters long");
   }
 
-  if (
-    !data.provider ||
-    ![
-      "veo3",
-      "runway",
-      "pika",
-      "stable_video",
-      "elevenlabs",
-      "murf",
-      "synthesia",
-    ].includes(data.provider)
-  ) {
-    errors.push({
-      field: "provider",
-      message: "Provider must be one of the supported providers",
-    });
+  if (data.prompt && data.prompt.length > 5000) {
+    errors.push("Prompt must be less than 5000 characters");
   }
 
-  if (
-    !data.model ||
-    typeof data.model !== "string" ||
-    data.model.trim().length === 0
-  ) {
-    errors.push({
-      field: "model",
-      message: "Model is required and must be a non-empty string",
-    });
+  // Validate parameters if provided
+  if (data.parameters !== undefined) {
+    if (typeof data.parameters !== "object" || Array.isArray(data.parameters)) {
+      errors.push("Parameters must be an object");
+    }
   }
 
-  if (
-    !data.prompt ||
-    typeof data.prompt !== "string" ||
-    data.prompt.trim().length === 0
-  ) {
-    errors.push({
-      field: "prompt",
-      message: "Prompt is required and must be a non-empty string",
-    });
+  // Validate provider if provided
+  if (data.provider && typeof data.provider !== "string") {
+    errors.push("Provider must be a string");
   }
 
-  // Length validation
-  if (data.prompt && data.prompt.length > 2000) {
-    errors.push({
-      field: "prompt",
-      message: "Prompt must be less than 2000 characters",
-    });
+  // Validate model if provided
+  if (data.model && typeof data.model !== "string") {
+    errors.push("Model must be a string");
   }
 
-  if (data.model && data.model.length > 100) {
-    errors.push({
-      field: "model",
-      message: "Model name must be less than 100 characters",
-    });
-  }
-
-  // Parameters validation
-  if (data.parameters && typeof data.parameters !== "object") {
-    errors.push({
-      field: "parameters",
-      message: "Parameters must be an object",
-    });
+  // Validate priority if provided
+  if (data.priority !== undefined) {
+    if (
+      typeof data.priority !== "number" ||
+      data.priority < 0 ||
+      data.priority > 10
+    ) {
+      errors.push("Priority must be a number between 0 and 10");
+    }
   }
 
   return {
-    success: errors.length === 0,
-    errors,
-    data: errors.length === 0 ? data : undefined,
+    valid: errors.length === 0,
+    errors: errors.length > 0 ? errors : undefined,
+    error: errors.length > 0 ? errors[0] : undefined,
   };
 }
 
 /**
- * Validate clarification submission data
+ * Validate clarification request
  */
-export function validateClarificationSubmission(data: any): ValidationResult {
-  const errors: ValidationError[] = [];
+export function validateClarificationRequest(data: any): ValidationResult {
+  const errors: string[] = [];
 
-  if (
-    !data.clarificationResponses ||
-    typeof data.clarificationResponses !== "object"
-  ) {
-    errors.push({
-      field: "clarificationResponses",
-      message: "Clarification responses are required and must be an object",
-    });
+  // Check if data is an object
+  if (!data || typeof data !== "object") {
+    errors.push("Request body must be an object");
+  }
+
+  // Check required fields
+  if (!data.response || typeof data.response !== "string") {
+    errors.push("Response is required and must be a string");
+  }
+
+  // Validate response length
+  if (data.response && data.response.length < 1) {
+    errors.push("Response cannot be empty");
+  }
+
+  if (data.response && data.response.length > 2000) {
+    errors.push("Response must be less than 2000 characters");
+  }
+
+  // Validate questionId if provided
+  if (data.questionId !== undefined) {
+    if (typeof data.questionId !== "string") {
+      errors.push("Question ID must be a string");
+    }
   }
 
   return {
-    success: errors.length === 0,
-    errors,
-    data: errors.length === 0 ? data : undefined,
+    valid: errors.length === 0,
+    errors: errors.length > 0 ? errors : undefined,
+    error: errors.length > 0 ? errors[0] : undefined,
   };
 }
 
 /**
- * Validate job ID format
+ * Validate video upload request
  */
-export function validateJobId(jobId: string): boolean {
-  // UUID v4 format validation
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(jobId);
+export function validateVideoUploadRequest(data: any): ValidationResult {
+  const errors: string[] = [];
+
+  // Check if data is an object
+  if (!data || typeof data !== "object") {
+    errors.push("Request body must be an object");
+  }
+
+  // Check required fields
+  if (!data.filename || typeof data.filename !== "string") {
+    errors.push("Filename is required and must be a string");
+  }
+
+  // Validate filename
+  if (data.filename && !data.filename.match(/^[a-zA-Z0-9._-]+$/)) {
+    errors.push("Filename contains invalid characters");
+  }
+
+  // Validate file size if provided
+  if (data.size !== undefined) {
+    if (typeof data.size !== "number" || data.size <= 0) {
+      errors.push("File size must be a positive number");
+    }
+    if (data.size > 500 * 1024 * 1024) {
+      // 500MB limit
+      errors.push("File size exceeds 500MB limit");
+    }
+  }
+
+  // Validate content type if provided
+  if (data.contentType && typeof data.contentType !== "string") {
+    errors.push("Content type must be a string");
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors: errors.length > 0 ? errors : undefined,
+    error: errors.length > 0 ? errors[0] : undefined,
+  };
 }
 
 /**
- * Validate generation ID format
+ * Validate worker registration request
  */
-export function validateGenerationId(generationId: string): boolean {
-  return validateJobId(generationId); // Same format as job ID
+export function validateWorkerRegistrationRequest(data: any): ValidationResult {
+  const errors: string[] = [];
+
+  // Check if data is an object
+  if (!data || typeof data !== "object") {
+    errors.push("Request body must be an object");
+  }
+
+  // Check required fields
+  if (!data.workerId || typeof data.workerId !== "string") {
+    errors.push("Worker ID is required and must be a string");
+  }
+
+  if (!data.workerInfo || typeof data.workerInfo !== "object") {
+    errors.push("Worker info is required and must be an object");
+  }
+
+  // Validate worker info if provided
+  if (data.workerInfo) {
+    if (data.workerInfo.name && typeof data.workerInfo.name !== "string") {
+      errors.push("Worker name must be a string");
+    }
+
+    if (
+      data.workerInfo.version &&
+      typeof data.workerInfo.version !== "string"
+    ) {
+      errors.push("Worker version must be a string");
+    }
+
+    if (
+      data.workerInfo.capabilities &&
+      !Array.isArray(data.workerInfo.capabilities)
+    ) {
+      errors.push("Worker capabilities must be an array");
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors: errors.length > 0 ? errors : undefined,
+    error: errors.length > 0 ? errors[0] : undefined,
+  };
+}
+
+/**
+ * Validate heartbeat request
+ */
+export function validateHeartbeatRequest(data: any): ValidationResult {
+  const errors: string[] = [];
+
+  // Check if data is an object
+  if (!data || typeof data !== "object") {
+    errors.push("Request body must be an object");
+  }
+
+  // Check required fields
+  if (!data.workerId || typeof data.workerId !== "string") {
+    errors.push("Worker ID is required and must be a string");
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors: errors.length > 0 ? errors : undefined,
+    error: errors.length > 0 ? errors[0] : undefined,
+  };
+}
+
+/**
+ * Sanitize string input
+ */
+export function sanitizeString(input: string): string {
+  if (typeof input !== "string") {
+    return "";
+  }
+
+  // Remove potentially dangerous characters
+  return input
+    .replace(/[<>]/g, "") // Remove angle brackets
+    .replace(/javascript:/gi, "") // Remove javascript: protocol
+    .replace(/on\w+=/gi, "") // Remove event handlers
+    .trim();
 }
 
 /**
@@ -159,55 +262,24 @@ export function validateEmail(email: string): boolean {
 }
 
 /**
- * Sanitize string input
+ * Validate URL format
  */
-export function sanitizeString(input: string): string {
-  return input.trim().replace(/[<>]/g, "");
+export function validateUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Sanitize object input
+ * Validate numeric range
  */
-export function sanitizeObject(obj: any): any {
-  if (typeof obj !== "object" || obj === null) {
-    return obj;
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map((item) => sanitizeObject(item));
-  }
-
-  const sanitized: any = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "string") {
-      sanitized[key] = sanitizeString(value);
-    } else if (typeof value === "object" && value !== null) {
-      sanitized[key] = sanitizeObject(value);
-    } else {
-      sanitized[key] = value;
-    }
-  }
-
-  return sanitized;
-}
-
-/**
- * Create error response
- */
-export function createValidationErrorResponse(
-  errors: ValidationError[]
-): Response {
-  return new Response(
-    JSON.stringify({
-      success: false,
-      error: "Validation failed",
-      details: errors,
-    }),
-    {
-      status: 400,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
-  );
+export function validateRange(
+  value: number,
+  min: number,
+  max: number
+): boolean {
+  return typeof value === "number" && value >= min && value <= max;
 }

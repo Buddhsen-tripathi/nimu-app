@@ -1,123 +1,177 @@
-// Authentication utilities for Cloudflare Workers
-
-export interface AuthUser {
-  id: string;
-  email: string;
-  role: string;
-  permissions: string[];
-}
+/**
+ * Authentication Utilities
+ *
+ * Provides authentication and authorization functionality for the Cloudflare Worker.
+ */
 
 export interface AuthResult {
   success: boolean;
-  user?: AuthUser;
+  userId?: string;
   error?: string;
 }
 
-/**
- * Extract and validate JWT token from request headers
- */
-export function extractToken(request: Request): string | null {
-  const authHeader = request.headers.get("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return null;
-  }
-  return authHeader.substring(7);
+export interface UserInfo {
+  id: string;
+  email?: string;
+  name?: string;
+  role?: string;
 }
 
 /**
- * Validate JWT token and return user information
+ * Authenticate user from request
  */
-export async function validateToken(
-  token: string,
-  jwtSecret: string
+export async function authenticateUser(
+  request: Request,
+  env: any
 ): Promise<AuthResult> {
   try {
-    // In a real implementation, you would validate the JWT token here
-    // For now, we'll return a mock validation
-
-    // TODO: Implement actual JWT validation
-    // const decoded = jwt.verify(token, jwtSecret);
-
-    // Mock validation for development
-    if (token === "valid-token") {
-      return {
-        success: true,
-        user: {
-          id: "user-123",
-          email: "user@example.com",
-          role: "user",
-          permissions: ["generate:video", "generate:audio"],
-        },
-      };
+    // Get authorization header
+    const authHeader = request.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return { success: false, error: "No authorization token provided" };
     }
 
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+    // In a real implementation, you would validate the JWT token here
+    // For now, we'll do a simple validation
+    if (!token || token.length < 10) {
+      return { success: false, error: "Invalid token format" };
+    }
+
+    // For development/testing, extract user ID from token
+    // In production, you'd decode and validate the JWT
+    const userId = extractUserIdFromToken(token);
+    if (!userId) {
+      return { success: false, error: "Invalid token" };
+    }
+
+    return { success: true, userId };
+  } catch (error) {
+    console.error("Authentication error:", error);
+    return { success: false, error: "Authentication failed" };
+  }
+}
+
+/**
+ * Extract user ID from token (simplified implementation)
+ */
+function extractUserIdFromToken(token: string): string | null {
+  try {
+    // This is a simplified implementation for development
+    // In production, you would decode the JWT and validate it
+    if (token.startsWith("dev_")) {
+      return token.substring(4); // Remove 'dev_' prefix
+    }
+
+    // For testing, you can also accept simple user IDs
+    if (token.match(/^user_\d+$/)) {
+      return token;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Token extraction error:", error);
+    return null;
+  }
+}
+
+/**
+ * Get user info from token
+ */
+export async function getUserInfo(
+  token: string,
+  env: any
+): Promise<UserInfo | null> {
+  try {
+    const userId = extractUserIdFromToken(token);
+    if (!userId) {
+      return null;
+    }
+
+    // In a real implementation, you would fetch user info from a database
+    // For now, return basic user info
     return {
-      success: false,
-      error: "Invalid token",
+      id: userId,
+      email: `${userId}@example.com`,
+      name: `User ${userId}`,
+      role: "user",
     };
   } catch (error) {
-    return {
-      success: false,
-      error: "Token validation failed",
-    };
+    console.error("Get user info error:", error);
+    return null;
   }
 }
 
 /**
- * Check if user has required permission
+ * Validate user permissions
  */
-export function hasPermission(user: AuthUser, permission: string): boolean {
-  return user.permissions.includes(permission) || user.role === "admin";
-}
-
-/**
- * Middleware for authentication
- */
-export async function authenticateRequest(
-  request: Request,
-  jwtSecret: string
-): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
-  const token = extractToken(request);
-
-  if (!token) {
-    return {
-      success: false,
-      error: "No authentication token provided",
-    };
+export function validatePermissions(
+  user: UserInfo,
+  requiredRole: string
+): boolean {
+  if (!user || !user.role) {
+    return false;
   }
 
-  const authResult = await validateToken(token, jwtSecret);
-  return authResult;
-}
-
-/**
- * Create CORS headers for preflight requests
- */
-export function createCorsHeaders(origin?: string): HeadersInit {
-  const headers: HeadersInit = {
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Max-Age": "86400",
+  const roleHierarchy = {
+    admin: 3,
+    moderator: 2,
+    user: 1,
   };
 
-  if (origin) {
-    headers["Access-Control-Allow-Origin"] = origin;
-  } else {
-    headers["Access-Control-Allow-Origin"] = "*";
-  }
+  const userLevel = roleHierarchy[user.role as keyof typeof roleHierarchy] || 0;
+  const requiredLevel =
+    roleHierarchy[requiredRole as keyof typeof roleHierarchy] || 0;
 
-  return headers;
+  return userLevel >= requiredLevel;
 }
 
 /**
- * Handle CORS preflight requests
+ * Check if user can access resource
  */
-export function handleCors(request: Request): Response | null {
-  if (request.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: createCorsHeaders(request.headers.get("Origin") || undefined),
-    });
+export function canAccessResource(
+  user: UserInfo,
+  resourceOwnerId: string
+): boolean {
+  // Admin can access everything
+  if (user.role === "admin") {
+    return true;
   }
-  return null;
+
+  // User can access their own resources
+  return user.id === resourceOwnerId;
+}
+
+/**
+ * Generate development token (for testing)
+ */
+export function generateDevToken(userId: string): string {
+  return `dev_${userId}`;
+}
+
+/**
+ * Validate request structure
+ */
+export function validateRequest(request: Request): {
+  valid: boolean;
+  error?: string;
+} {
+  try {
+    // Check if request has required headers
+    if (!request.headers.get("Content-Type") && request.method !== "GET") {
+      return { valid: false, error: "Content-Type header is required" };
+    }
+
+    // Check request size (basic validation)
+    const contentLength = request.headers.get("Content-Length");
+    if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) {
+      // 10MB limit
+      return { valid: false, error: "Request too large" };
+    }
+
+    return { valid: true };
+  } catch (error) {
+    return { valid: false, error: "Request validation failed" };
+  }
 }
