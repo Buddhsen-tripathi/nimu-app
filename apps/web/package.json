@@ -10,7 +10,9 @@
     "lint": "next lint --max-warnings 0",
     "check-types": "tsc --noEmit",
     "migrate": "node scripts/migrate-to-cloudflare.js",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:fix": "node scripts/fix-database.js",
+    "db:migrate-specific": "node scripts/run-specific-migration.js"
   },
   "dependencies": {
     "@google/genai": "^1.24.0",
