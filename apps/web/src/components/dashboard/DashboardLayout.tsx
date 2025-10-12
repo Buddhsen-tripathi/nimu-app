@@ -6,16 +6,27 @@ import Sidebar from "./Sidebar";
 import ChatPane from "./ChatPane";
 import GhostIconButton from "./GhostIconButton";
 import ThemeToggle from "./ThemeToggle";
-import {
-  INITIAL_CONVERSATIONS,
-  INITIAL_TEMPLATES,
-  INITIAL_FOLDERS,
-} from "./mockData";
+import { INITIAL_TEMPLATES, INITIAL_FOLDERS } from "./mockData";
 import { Conversation, Template, Folder, CollapsedSections } from "./types";
+import {
+  useConversations,
+  useCreateConversation,
+} from "@/hooks/queries/useConversations";
 
 export default function DashboardLayout() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState("light");
+
+  // Use real API hooks instead of mock data
+  const {
+    data: conversations = [],
+    isLoading: conversationsLoading,
+    error: conversationsError,
+  } = useConversations();
+  const createConversationMutation = useCreateConversation();
+
+  // Type assertion for conversations
+  const typedConversations = conversations as Conversation[];
 
   useEffect(() => {
     setMounted(true);
@@ -63,7 +74,7 @@ export default function DashboardLayout() {
       const media =
         window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
       if (!media) return;
-      const listener = (e) => {
+      const listener = (e: MediaQueryListEvent) => {
         const saved = localStorage.getItem("theme");
         if (!saved) setTheme(e.matches ? "dark" : "light");
       };
@@ -96,9 +107,6 @@ export default function DashboardLayout() {
     } catch {}
   }, [sidebarCollapsed]);
 
-  const [conversations, setConversations] = useState<Conversation[]>(
-    INITIAL_CONVERSATIONS
-  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<Template[]>(INITIAL_TEMPLATES);
   const [folders, setFolders] = useState<Folder[]>(INITIAL_FOLDERS);
@@ -126,60 +134,66 @@ export default function DashboardLayout() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sidebarOpen, conversations]);
+  }, [sidebarOpen, typedConversations]);
 
   useEffect(() => {
-    if (!selectedId && conversations.length > 0) {
+    if (!selectedId && typedConversations.length > 0) {
       createNewChat();
     }
-  }, []);
+  }, [typedConversations.length]);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return conversations;
+    if (!query.trim()) return typedConversations;
     const q = query.toLowerCase();
-    return conversations.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) || c.preview.toLowerCase().includes(q)
+    return typedConversations.filter(
+      (c: any) =>
+        c.title?.toLowerCase().includes(q) ||
+        c.lastMessage?.toLowerCase().includes(q)
     );
-  }, [conversations, query]);
+  }, [typedConversations, query]);
 
-  const pinned = filtered
-    .filter((c) => c.pinned)
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
-
+  // For now, we'll show all conversations as recent since we don't have pinned functionality
+  const pinned: Conversation[] = [];
   const recent = filtered
-    .filter((c) => !c.pinned)
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+    .sort((a: Conversation, b: Conversation) =>
+      new Date(a.updatedAt) < new Date(b.updatedAt) ? 1 : -1
+    )
     .slice(0, 10);
 
   const folderCounts = React.useMemo(() => {
     const map = Object.fromEntries(folders.map((f) => [f.name, 0]));
-    for (const c of conversations)
-      if (c.folder && map[c.folder] != null) map[c.folder] += 1;
+    // For now, we don't have folder functionality in the database
     return map;
-  }, [conversations, folders]);
+  }, [folders]);
 
   function togglePin(id: string) {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c))
-    );
+    // This will be handled by the API mutation
+    // For now, we'll use the toggle pin mutation from the hooks
+    console.log("Toggle pin for conversation:", id);
   }
 
   function createNewChat() {
-    const id = Math.random().toString(36).slice(2);
-    const item: Conversation = {
-      id,
-      title: "New Generation",
-      updatedAt: new Date().toISOString(),
-      messageCount: 0,
-      preview: "Start creating videos or audio...",
-      pinned: false,
-      folder: "Video Projects",
-      messages: [], // Ensure messages array is empty for new chats
-    };
-    setConversations((prev) => [item, ...prev]);
-    setSelectedId(id);
-    setSidebarOpen(false);
+    createConversationMutation.mutate(
+      {
+        userId: "current-user-id", // TODO: Get from auth session
+        title: "New Generation",
+        type: "video_generation",
+        status: "active",
+        isArchived: false,
+        isDeleted: false,
+        messageCount: 0,
+      },
+      {
+        onSuccess: (newConversation) => {
+          setSelectedId(newConversation.id);
+          setSidebarOpen(false);
+        },
+        onError: (error) => {
+          console.error("Failed to create conversation:", error);
+          // You could add a toast notification here
+        },
+      }
+    );
   }
 
   function createFolder() {
@@ -195,81 +209,28 @@ export default function DashboardLayout() {
 
   function sendMessage(convId: string, content: string) {
     if (!content.trim()) return;
-    const now = new Date().toISOString();
-    const userMsg = {
-      id: Math.random().toString(36).slice(2),
-      role: "user",
-      content,
-      createdAt: now,
-    };
 
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id !== convId) return c;
-        const msgs = [...(c.messages || []), userMsg];
-        return {
-          ...c,
-          messages: msgs,
-          updatedAt: now,
-          messageCount: msgs.length,
-          preview: content.slice(0, 80),
-        };
-      })
-    );
-
+    // TODO: Implement message sending to API
+    // For now, just show thinking state
     setIsThinking(true);
     setThinkingConvId(convId);
 
     const currentConvId = convId;
     setTimeout(() => {
-      // Always clear thinking state and generate response for this specific conversation
       setIsThinking(false);
       setThinkingConvId(null);
-      setConversations((prev) =>
-        prev.map((c) => {
-          if (c.id !== currentConvId) return c;
-          const ack = `Got it — I'll help with that.`;
-          const asstMsg = {
-            id: Math.random().toString(36).slice(2),
-            role: "assistant",
-            content: ack,
-            createdAt: new Date().toISOString(),
-          };
-          const msgs = [...(c.messages || []), asstMsg];
-          return {
-            ...c,
-            messages: msgs,
-            updatedAt: new Date().toISOString(),
-            messageCount: msgs.length,
-            preview: asstMsg.content.slice(0, 80),
-          };
-        })
-      );
+      // TODO: Add assistant response via API
     }, 2000);
   }
 
   function editMessage(convId: string, messageId: string, newContent: string) {
-    const now = new Date().toISOString();
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id !== convId) return c;
-        const msgs = (c.messages || []).map((m) =>
-          m.id === messageId ? { ...m, content: newContent, editedAt: now } : m
-        );
-        return {
-          ...c,
-          messages: msgs,
-          preview: msgs[msgs.length - 1]?.content?.slice(0, 80) || c.preview,
-        };
-      })
-    );
+    // TODO: Implement message editing via API
+    console.log("Edit message:", { convId, messageId, newContent });
   }
 
   function resendMessage(convId: string, messageId: string) {
-    const conv = conversations.find((c) => c.id === convId);
-    const msg = conv?.messages?.find((m) => m.id === messageId);
-    if (!msg) return;
-    sendMessage(convId, msg.content);
+    // TODO: Implement message resending via API
+    console.log("Resend message:", { convId, messageId });
   }
 
   function pauseThinking() {
@@ -287,15 +248,29 @@ export default function DashboardLayout() {
 
   const composerRef = useRef<any>(null);
 
-  const selected = conversations.find((c) => c.id === selectedId) || null;
+  const selected = typedConversations.find((c) => c.id === selectedId) || null;
 
-  if (!mounted) {
+  if (!mounted || conversationsLoading) {
     return (
       <div className="h-screen w-full bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900 dark:border-zinc-100 mx-auto mb-4"></div>
             <p className="text-sm text-zinc-500">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (conversationsError) {
+    return (
+      <div className="h-screen w-full bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <p className="text-sm text-red-500">
+              Error loading conversations: {conversationsError.message}
+            </p>
           </div>
         </div>
       </div>
@@ -335,7 +310,7 @@ export default function DashboardLayout() {
           setCollapsed={setCollapsed}
           sidebarCollapsed={sidebarCollapsed}
           setSidebarCollapsed={setSidebarCollapsed}
-          conversations={conversations}
+          conversations={typedConversations}
           pinned={pinned}
           recent={recent}
           folders={folders}
@@ -345,7 +320,7 @@ export default function DashboardLayout() {
           togglePin={togglePin}
           query={query}
           setQuery={setQuery}
-          searchRef={searchRef}
+          searchRef={searchRef as React.RefObject<HTMLInputElement>}
           createFolder={createFolder}
           createNewChat={createNewChat}
           templates={templates}

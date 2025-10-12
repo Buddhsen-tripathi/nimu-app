@@ -1,7 +1,7 @@
+import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys, invalidateQueries } from "@/lib/react-query";
 import { useConversationStore } from "@/stores/useConversationStore";
-import { storeIntegration } from "@/stores/storeIntegration";
 import type { Conversation, NewConversation } from "@/db/schema";
 
 // API functions (these would call the actual API endpoints)
@@ -81,53 +81,77 @@ const conversationsApi = {
 export const useConversations = () => {
   const { loadConversations, setLoading, setError } = useConversationStore();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.conversations.lists(),
     queryFn: conversationsApi.getConversations,
-    onSuccess: (data) => {
-      loadConversations(data);
-    },
-    onError: (error) => {
-      setError(
-        error instanceof Error ? error.message : "Failed to fetch conversations"
-      );
-    },
-    onSettled: () => {
-      setLoading(false);
-    },
   });
+
+  // Handle side effects with useEffect
+  React.useEffect(() => {
+    if (query.data) {
+      loadConversations(query.data);
+    }
+  }, [query.data, loadConversations]);
+
+  React.useEffect(() => {
+    if (query.error) {
+      setError(
+        query.error instanceof Error
+          ? query.error.message
+          : "Failed to fetch conversations"
+      );
+    }
+  }, [query.error, setError]);
+
+  React.useEffect(() => {
+    setLoading(query.isLoading);
+  }, [query.isLoading, setLoading]);
+
+  return query;
 };
 
 export const useConversation = (id: string) => {
   const { getConversationById, setError } = useConversationStore();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.conversations.detail(id),
     queryFn: () => conversationsApi.getConversation(id),
     enabled: !!id,
-    onError: (error) => {
-      setError(
-        error instanceof Error ? error.message : "Failed to fetch conversation"
-      );
-    },
   });
+
+  React.useEffect(() => {
+    if (query.error) {
+      setError(
+        query.error instanceof Error
+          ? query.error.message
+          : "Failed to fetch conversation"
+      );
+    }
+  }, [query.error, setError]);
+
+  return query;
 };
 
-export const useSearchConversations = (query: string) => {
+export const useSearchConversations = (searchQuery: string) => {
   const { setError } = useConversationStore();
 
-  return useQuery({
-    queryKey: queryKeys.conversations.search(query),
-    queryFn: () => conversationsApi.searchConversations(query),
-    enabled: !!query && query.length > 0,
-    onError: (error) => {
+  const query = useQuery({
+    queryKey: queryKeys.conversations.search(searchQuery),
+    queryFn: () => conversationsApi.searchConversations(searchQuery),
+    enabled: !!searchQuery && searchQuery.length > 0,
+  });
+
+  React.useEffect(() => {
+    if (query.error) {
       setError(
-        error instanceof Error
-          ? error.message
+        query.error instanceof Error
+          ? query.error.message
           : "Failed to search conversations"
       );
-    },
-  });
+    }
+  }, [query.error, setError]);
+
+  return query;
 };
 
 // Mutation hooks
@@ -147,9 +171,13 @@ export const useCreateConversation = () => {
       const optimisticConversation: Conversation = {
         id: crypto.randomUUID(),
         ...newConversation,
+        status: newConversation.status || "active",
+        type: newConversation.type || "general_chat",
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+        lastMessageAt: null,
+        lastMessage: null,
+      } as Conversation;
 
       createConversation(optimisticConversation);
 
