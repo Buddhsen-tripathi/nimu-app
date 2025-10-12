@@ -89,34 +89,34 @@ nimu-app/
 
 #### 5.2.1 Create `workers/wrangler.toml`
 
-- [ ] Configure worker name and compatibility date
-- [ ] Set up Durable Objects bindings
-- [ ] Configure R2 bucket bindings
-- [ ] Set environment variables
-- [ ] Configure cron triggers for cleanup
-- [ ] Set up custom domain (optional)
+- [x] Configure worker name and compatibility date
+- [x] Set up Durable Objects bindings
+- [x] Configure R2 bucket bindings
+- [x] Set environment variables
+- [x] Configure cron triggers for cleanup
+- [x] Set up custom domain (optional)
 
 #### 5.2.2 Environment Variables Setup
 
-- [ ] Create `.dev.vars` for development
-- [ ] Configure production secrets
-- [ ] Set up R2 credentials
-- [ ] Configure Veo3 API key
-- [ ] Set database connection string
+- [x] Create `.dev.vars` for development
+- [x] Configure production secrets (Cloudflare secrets setup instructions)
+- [x] Set up R2 credentials (Create bucket, access keys instructions)
+- [x] Configure Veo3 API key (Get API key from Veo3 instructions)
+- [x] Set database connection string (Connect to existing PostgreSQL instructions)
 
 ### 5.3 TypeScript Configuration
 
 #### 5.3.1 Create `workers/tsconfig.json`
 
-- [ ] Configure TypeScript for Workers
-- [ ] Set up path aliases
-- [ ] Configure strict mode
-- [ ] Set target and module resolution
+- [x] Configure TypeScript for Workers
+- [x] Set up path aliases
+- [x] Configure strict mode
+- [x] Set target and module resolution
 
 #### 5.3.2 Create Shared Types Package (Optional)
 
-- [ ] Extract common types from Next.js app
-- [ ] Create shared type definitions
+- [x] Extract common types from Next.js app
+- [x] Create shared type definitions
 - [ ] Set up package linking
 - [ ] Configure type exports
 
