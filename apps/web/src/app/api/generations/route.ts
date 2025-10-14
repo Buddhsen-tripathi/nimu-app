@@ -10,7 +10,8 @@ const createGenerationSchema = z.object({
   messageId: z.string().uuid(),
   type: z.enum(["video", "audio"]),
   provider: z.enum([
-    "veo3",
+    "google",
+    "veo3", // Keep for backward compatibility
     "runway",
     "pika",
     "stable_video",
@@ -86,6 +87,13 @@ export async function POST(request: NextRequest) {
     };
 
     const generation = await createGeneration(generationData, session.user.id);
+
+    if (!generation) {
+      return NextResponse.json(
+        { error: "Failed to create generation" },
+        { status: 500 }
+      );
+    }
 
     // Log 2: Generation created in DB
     console.log("[GENERATION_CREATE] Generation created in DB", {

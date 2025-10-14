@@ -61,8 +61,14 @@ export class WorkerService {
 
     this.generationWorkflow = createGenerationWorkflow(
       {
-        veo3ApiKey: config.veo3ApiKey,
-        veo3BaseUrl: config.veo3BaseUrl || "https://api.veo3.com",
+        providers: {
+          google: {
+            apiKey: config.veo3ApiKey || "",
+            baseUrl:
+              config.veo3BaseUrl ||
+              "https://generativelanguage.googleapis.com/v1beta",
+          },
+        },
         maxRetries: config.retryAttempts,
         pollingInterval: config.pollingInterval,
         timeoutMs: config.timeoutMs,

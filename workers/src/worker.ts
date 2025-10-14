@@ -28,7 +28,11 @@ import {
   RATE_LIMIT_CONFIGS,
   ErrorHandler,
 } from "./middleware";
-import { GenerationWorkflow } from "./services/GenerationWorkflow";
+import {
+  GenerationWorkflow,
+  type GenerationWorkflowConfig,
+} from "./services/GenerationWorkflow";
+import { modelRegistry } from "./services/providers";
 
 // Environment interface combining all services
 export interface Env {
@@ -90,27 +94,36 @@ async function processGenerationInBackground(
     });
 
     // Initialize GenerationWorkflow
-    const workflow = new GenerationWorkflow(
-      {
-        veo3ApiKey: env.VEO3_API_KEY!,
-        veo3BaseUrl:
-          env.VEO3_API_URL ||
-          "https://generativelanguage.googleapis.com/v1beta",
-        maxRetries: 3,
-        pollingInterval: 5000,
-        timeoutMs: 300000,
-        enableClarifications: false,
-        enableProgressTracking: true,
+    const config: GenerationWorkflowConfig = {
+      providers: {
+        google: {
+          apiKey: env.VEO3_API_KEY!,
+          baseUrl:
+            env.VEO3_API_URL ||
+            "https://generativelanguage.googleapis.com/v1beta",
+        },
       },
+      maxRetries: 3,
+      pollingInterval: 5000,
+      timeoutMs: 300000,
+      enableClarifications: false,
+      enableProgressTracking: true,
+    };
+
+    const workflow = new GenerationWorkflow(
+      config,
       durableObjectManager,
       videoStorage
     );
 
     // Step 1: Start generation (setup)
+    const selectedModel =
+      parameters.selectedModel || modelRegistry.getDefaultModel().id;
     const startResult = await workflow.startGeneration(
       userId,
       prompt,
-      parameters
+      parameters,
+      selectedModel
     );
 
     if (!startResult.success) {
@@ -182,15 +195,59 @@ async function processGenerationInBackground(
     );
 
     // Step 3: Process generation (poll until complete)
-    const processResult = await workflow.processGeneration(
+    let processResult = await workflow.processGeneration(
       startResult.generationId!
     );
+
+    // Poll until completion or failure with exponential backoff
+    let attempts = 0;
+    let delay = 5000; // Start with 5 seconds
+    const maxAttempts = 20; // Reduced from 60 to 20
+    const maxDelay = 30000; // Maximum 30 seconds between polls
+
+    while (
+      processResult.success &&
+      !processResult.videoUrl &&
+      attempts < maxAttempts
+    ) {
+      attempts++;
+      console.log(
+        `[BACKGROUND_PROCESSING] Polling attempt ${attempts}/${maxAttempts} (delay: ${delay}ms)`,
+        {
+          requestId,
+          generationId,
+          timestamp: new Date().toISOString(),
+        }
+      );
+
+      // Wait with exponential backoff
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      // Increase delay for next iteration (exponential backoff)
+      delay = Math.min(delay * 1.8, maxDelay);
+
+      // Poll again
+      processResult = await workflow.processGeneration(
+        startResult.generationId!
+      );
+
+      if (!processResult.success) {
+        console.log("[BACKGROUND_PROCESSING] Polling failed", {
+          requestId,
+          generationId,
+          error: processResult.error,
+          timestamp: new Date().toISOString(),
+        });
+        break;
+      }
+    }
 
     console.log("[BACKGROUND_PROCESSING] Generation workflow completed", {
       requestId,
       generationId,
       success: processResult.success,
       videoUrl: processResult.videoUrl,
+      attempts,
       timestamp: new Date().toISOString(),
     });
 
@@ -220,7 +277,7 @@ async function processGenerationInBackground(
           generationId: generationId,
           userId: userId,
           status: "failed",
-          error: processResult.error || "Generation failed",
+          error: processResult.error || "Generation failed or timed out",
           timestamp: new Date().toISOString(),
         },
         env
@@ -379,6 +436,11 @@ const Worker = {
       // Health check endpoint
       if (path === "/health" && method === "GET") {
         response = await handleHealthCheck(env);
+      }
+
+      // Models endpoint
+      else if (path === "/api/models" && method === "GET") {
+        response = await handleModelsEndpoint();
       }
 
       // Generation endpoints
@@ -1127,6 +1189,45 @@ async function handleDailyCleanup(
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
     };
+  }
+}
+
+/**
+ * Handle models endpoint
+ */
+async function handleModelsEndpoint(): Promise<Response> {
+  try {
+    const models = modelRegistry.getAllModels();
+    const groupedModels = modelRegistry.getModelsGroupedByProvider();
+    const defaultModel = modelRegistry.getDefaultModel();
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          models,
+          groupedModels,
+          defaultModel,
+          providers: modelRegistry.getProviders(),
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      }
+    );
+  } catch (error) {
+    console.error("[WORKER] Failed to get models:", error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "Failed to retrieve models",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      }
+    );
   }
 }
 

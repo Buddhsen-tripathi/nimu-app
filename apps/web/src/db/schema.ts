@@ -60,7 +60,8 @@ export const generationStatusEnum = pgEnum("generation_status", [
 ]);
 
 export const providerEnum = pgEnum("provider", [
-  "veo3",
+  "google",
+  "veo3", // Keep for backward compatibility
   "runway",
   "pika",
   "stable_video",

@@ -72,7 +72,7 @@ export interface SidebarProps {
 
 export interface ChatPaneProps {
   conversation: Conversation | null;
-  onSend: (content: string) => void;
+  onSend: (content: string, options?: { selectedModel?: string }) => void;
   onEditMessage: (messageId: string, newContent: string) => void;
   onResendMessage: (messageId: string) => void;
   isThinking: boolean;
@@ -120,7 +120,7 @@ export interface MessageProps {
 }
 
 export interface ComposerProps {
-  onSend: (text: string) => Promise<void>;
+  onSend: (text: string, options?: { selectedModel?: string }) => Promise<void>;
   busy: boolean;
 }
 

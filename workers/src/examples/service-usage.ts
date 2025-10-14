@@ -71,8 +71,12 @@ export async function exampleGenerationWorkflow(env: any) {
 
   // Configure workflow
   const config: GenerationWorkflowConfig = {
-    veo3ApiKey: env.VEO3_API_KEY,
-    veo3BaseUrl: "https://api.veo3.com",
+    providers: {
+      google: {
+        apiKey: env.VEO3_API_KEY || "",
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      },
+    },
     maxRetries: 3,
     pollingInterval: 5000,
     timeoutMs: 30000,
@@ -203,8 +207,12 @@ export async function exampleWorkerIntegration(request: Request, env: any) {
     // Create generation workflow
     const workflow = createGenerationWorkflow(
       {
-        veo3ApiKey: env.VEO3_API_KEY,
-        veo3BaseUrl: "https://api.veo3.com",
+        providers: {
+          google: {
+            apiKey: env.VEO3_API_KEY || "",
+            baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+          },
+        },
         maxRetries: 3,
         pollingInterval: 5000,
         timeoutMs: 30000,
@@ -305,8 +313,12 @@ export async function exampleBatchProcessing(env: any) {
 
   const workflow = createGenerationWorkflow(
     {
-      veo3ApiKey: env.VEO3_API_KEY,
-      veo3BaseUrl: "https://api.veo3.com",
+      providers: {
+        google: {
+          apiKey: env.VEO3_API_KEY || "",
+          baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+        },
+      },
       maxRetries: 3,
       pollingInterval: 5000,
       timeoutMs: 30000,

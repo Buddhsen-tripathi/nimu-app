@@ -235,7 +235,11 @@ export default function DashboardLayout() {
     return generationKeywords.some((keyword) => lowerContent.includes(keyword));
   }
 
-  function sendMessage(convId: string, content: string) {
+  function sendMessage(
+    convId: string,
+    content: string,
+    selectedModel?: string
+  ) {
     if (!content.trim()) return;
 
     // Show thinking state
@@ -260,7 +264,12 @@ export default function DashboardLayout() {
 
             if (isGenerationRequest) {
               // Trigger generation workflow via API
-              await triggerGeneration(convId, userMessage.id, content.trim());
+              await triggerGeneration(
+                convId,
+                userMessage.id,
+                content.trim(),
+                selectedModel
+              );
             } else {
               // For general chat, just send a simple AI response
               setTimeout(async () => {
@@ -292,7 +301,8 @@ export default function DashboardLayout() {
   async function triggerGeneration(
     conversationId: string,
     messageId: string,
-    prompt: string
+    prompt: string,
+    selectedModel?: string
   ) {
     try {
       // Create generation request via your existing API
@@ -305,8 +315,8 @@ export default function DashboardLayout() {
           conversationId,
           messageId,
           type: "video", // Default to video for now
-          provider: "veo3", // Default provider
-          model: "veo-3", // Default model
+          provider: "google", // Default provider
+          model: selectedModel || "veo-3.0-generate-001", // Use selected model or default
           prompt: prompt,
           parameters: {
             // Let the worker extract parameters from the prompt
@@ -457,7 +467,10 @@ export default function DashboardLayout() {
           <ChatPane
             ref={composerRef}
             conversation={selectedWithMessages}
-            onSend={(content) => selected && sendMessage(selected.id, content)}
+            onSend={(content, options) =>
+              selected &&
+              sendMessage(selected.id, content, options?.selectedModel)
+            }
             onEditMessage={(messageId, newContent) =>
               selected && editMessage(selected.id, messageId, newContent)
             }

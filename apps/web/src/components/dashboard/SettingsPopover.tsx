@@ -52,7 +52,7 @@ export default function SettingsPopover({ children }: SettingsPopoverProps) {
               {isPending ? "Loading..." : session?.user?.email || "No email"}
             </div>
 
-            <button 
+            <button
               onClick={handlePersonalClick}
               className="flex items-center gap-3 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 mb-4 w-full hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors"
             >
@@ -95,7 +95,7 @@ export default function SettingsPopover({ children }: SettingsPopoverProps) {
                 <ChevronRight className="h-4 w-4 ml-auto" />
               </button>
 
-              <button 
+              <button
                 onClick={handleLogout}
                 className="flex items-center gap-3 w-full p-2 text-sm text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"
               >
@@ -113,3 +113,4 @@ export default function SettingsPopover({ children }: SettingsPopoverProps) {
       />
     </>
   );
+}

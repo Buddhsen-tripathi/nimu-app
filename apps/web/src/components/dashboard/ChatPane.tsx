@@ -165,10 +165,10 @@ const ChatPane = forwardRef<any, ChatPaneProps>(function ChatPane(
 
       <Composer
         ref={composerRef}
-        onSend={async (text) => {
+        onSend={async (text, options) => {
           if (!text.trim()) return;
           setBusy(true);
-          await onSend?.(text);
+          await onSend?.(text, options);
           setBusy(false);
         }}
         busy={busy}

@@ -12,17 +12,17 @@
  * - Integration with JobManager and QueueManager
  */
 
-import {
-  Veo3Service,
-  createVeo3Service,
-  type Veo3GenerationRequest,
-} from "./Veo3Service";
 import { DurableObjectManager } from "../utils/durable-objects";
 import { VideoStorageHelper } from "../utils/r2";
+import {
+  type GenerationRequest,
+  modelRegistry,
+  ProviderFactory,
+  type ProviderConfig,
+} from "./providers";
 
 export interface GenerationWorkflowConfig {
-  veo3ApiKey: string;
-  veo3BaseUrl?: string;
+  providers: ProviderConfig;
   maxRetries: number;
   pollingInterval: number;
   timeoutMs: number;
@@ -46,7 +46,7 @@ export interface ClarificationResponse {
 }
 
 export class GenerationWorkflow {
-  private veo3Service: Veo3Service;
+  private providerFactory: ProviderFactory;
   private durableObjectManager: DurableObjectManager;
   private videoStorage: VideoStorageHelper;
   private config: GenerationWorkflowConfig;
@@ -57,10 +57,7 @@ export class GenerationWorkflow {
     videoStorage: VideoStorageHelper
   ) {
     this.config = config;
-    this.veo3Service = createVeo3Service(
-      config.veo3ApiKey,
-      config.veo3BaseUrl || "https://generativelanguage.googleapis.com/v1beta"
-    );
+    this.providerFactory = ProviderFactory.getInstance(config.providers);
     this.durableObjectManager = durableObjectManager;
     this.videoStorage = videoStorage;
   }
@@ -71,7 +68,8 @@ export class GenerationWorkflow {
   async startGeneration(
     userId: string,
     prompt: string,
-    parameters: Record<string, any> = {}
+    parameters: Record<string, any> = {},
+    selectedModel?: string
   ): Promise<WorkflowResult> {
     const requestId = `gen_start_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -84,15 +82,70 @@ export class GenerationWorkflow {
         timestamp: new Date().toISOString(),
       });
 
-      // 1. Validate prompt
-      console.log("[GENERATION_WORKFLOW] Validating prompt", {
+      // 1. Determine model to use
+      const model = selectedModel
+        ? modelRegistry.getModel(selectedModel)
+        : modelRegistry.getDefaultModel();
+
+      if (!model) {
+        console.error("[GENERATION_WORKFLOW] No model available", {
+          requestId,
+          selectedModel,
+          timestamp: new Date().toISOString(),
+        });
+        return {
+          success: false,
+          error: "No video generation model available",
+        };
+      }
+
+      console.log("[GENERATION_WORKFLOW] Using model", {
         requestId,
-        prompt,
+        modelId: model.id,
+        modelName: model.name,
+        provider: model.provider,
         timestamp: new Date().toISOString(),
       });
 
-      const validation = await this.veo3Service.validatePrompt(prompt);
-      if (!validation.success) {
+      // 2. Get provider for the model
+      const provider = this.providerFactory.getProviderForModel(model.id);
+
+      // 3. Create generation request
+      // Filter out old format fields that might be in parameters
+      const {
+        model: oldModel,
+        provider: oldProvider,
+        ...cleanParameters
+      } = parameters;
+
+      const generationRequest: GenerationRequest = {
+        prompt,
+        model: model.id,
+        provider: model.provider,
+        parameters: {
+          duration:
+            cleanParameters.duration || model.parameters.duration.default,
+          aspect_ratio:
+            cleanParameters.aspect_ratio ||
+            model.parameters.aspectRatio.default,
+          quality: cleanParameters.quality || model.parameters.quality.default,
+          ...cleanParameters,
+        },
+        userId,
+        conversationId: "", // Will be set later
+        messageId: "", // Will be set later
+      };
+
+      // 4. Validate the request
+      console.log("[GENERATION_WORKFLOW] Validating request", {
+        requestId,
+        model: generationRequest.model,
+        prompt: generationRequest.prompt,
+        timestamp: new Date().toISOString(),
+      });
+
+      const validation = await provider.validateRequest(generationRequest);
+      if (!validation.valid) {
         console.error("[GENERATION_WORKFLOW] Validation failed", {
           requestId,
           error: validation.error,
@@ -101,38 +154,20 @@ export class GenerationWorkflow {
         return {
           success: false,
           error: validation.error || "Validation failed",
-        };
-      }
-
-      if (!validation.valid) {
-        console.log(
-          "[GENERATION_WORKFLOW] Invalid prompt, clarification required",
-          {
-            requestId,
-            suggestions: validation.suggestions,
-            timestamp: new Date().toISOString(),
-          }
-        );
-        return {
-          success: false,
-          error: "Invalid prompt",
           clarificationRequired: true,
           clarificationQuestions: validation.suggestions || [],
         };
       }
 
-      // 2. Estimate cost
+      // 5. Estimate cost
       console.log("[GENERATION_WORKFLOW] Estimating cost", {
         requestId,
-        prompt,
-        parameters,
+        model: generationRequest.model,
+        parameters: generationRequest.parameters,
         timestamp: new Date().toISOString(),
       });
 
-      const costEstimate = await this.estimateGenerationCost(
-        prompt,
-        parameters
-      );
+      const costEstimate = await provider.estimateCost(generationRequest);
       if (!costEstimate.success) {
         console.warn("[GENERATION_WORKFLOW] Failed to estimate cost", {
           requestId,
@@ -147,12 +182,13 @@ export class GenerationWorkflow {
         });
       }
 
-      // 3. Create job in JobManager
+      // 6. Create job in JobManager
       const generationId = this.generateId();
       console.log("[GENERATION_WORKFLOW] Creating job", {
         requestId,
         generationId,
         userId,
+        model: model.id,
         timestamp: new Date().toISOString(),
       });
 
@@ -161,9 +197,9 @@ export class GenerationWorkflow {
         generationId,
         userId,
         prompt,
-        parameters,
-        provider: "veo3",
-        model: parameters.model || "veo-3",
+        parameters: generationRequest.parameters,
+        provider: model.provider,
+        model: model.id,
         priority: parameters.priority || 0,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -179,11 +215,15 @@ export class GenerationWorkflow {
         return { success: false, error: jobResult.error || "Job not found" };
       }
 
-      // 4. Update job status to pending
+      // 7. Update job status to pending
       await this.durableObjectManager.jobManager.updateJobStatus(
         generationId,
         "pending_clarification",
-        { costEstimate: costEstimate.cost }
+        {
+          costEstimate: costEstimate.cost,
+          model: model.id,
+          provider: model.provider,
+        }
       );
 
       console.log("[GENERATION_WORKFLOW] Generation workflow started", {
@@ -271,38 +311,64 @@ export class GenerationWorkflow {
         timestamp: new Date().toISOString(),
       });
 
-      // 2. Prepare Veo3 request
+      // 2. Prepare generation request
       const actualJobData = jobData.jobState?.data || jobData;
-      const veo3Request: Veo3GenerationRequest = {
-        prompt: actualJobData.prompt,
-        model: actualJobData.model,
-        duration: actualJobData.parameters?.duration || 5,
-        aspect_ratio: actualJobData.parameters?.aspect_ratio || "16:9",
-        quality: actualJobData.parameters?.quality || "standard",
-        ...actualJobData.parameters,
-      };
+      const model = modelRegistry.getModel(actualJobData.model);
 
-      // 3. Start Veo3 generation
-      const veo3Result = await this.veo3Service.generateVideo(veo3Request);
-      if (!veo3Result.success) {
+      if (!model) {
         return {
           success: false,
-          error: veo3Result.error || "Veo3 generation failed",
+          error: `Model ${actualJobData.model} not found`,
         };
       }
 
-      const operationId = veo3Result.data!.operation_id;
+      const provider = this.providerFactory.getProviderForModel(model.id);
+
+      const generationRequest: GenerationRequest = {
+        prompt: actualJobData.prompt,
+        model: actualJobData.model,
+        provider: model.provider,
+        parameters: {
+          duration:
+            actualJobData.parameters?.duration ||
+            model.parameters.duration.default,
+          aspect_ratio:
+            actualJobData.parameters?.aspect_ratio ||
+            model.parameters.aspectRatio.default,
+          quality:
+            actualJobData.parameters?.quality ||
+            model.parameters.quality.default,
+          ...actualJobData.parameters,
+        },
+        userId: actualJobData.userId,
+        conversationId: actualJobData.conversationId || "",
+        messageId: actualJobData.messageId || "",
+      };
+
+      // 3. Start generation
+      const generationResult = await provider.generateVideo(generationRequest);
+      if (!generationResult.success) {
+        return {
+          success: false,
+          error: generationResult.error || "Generation failed",
+        };
+      }
+
+      const operationId = generationResult.operationId!;
 
       // 4. Update job with operation ID
-      await this.durableObjectManager.jobManager.updateJobStatus(
-        generationId,
-        "processing",
-        {
-          operationId,
-          veo3Status: veo3Result.data!.status,
-          startedAt: new Date(),
-        }
-      );
+      console.log("[DEBUG] Updating job status with operationId:", operationId);
+      const updateResult =
+        await this.durableObjectManager.jobManager.updateJobStatus(
+          generationId,
+          "active",
+          {
+            operationId,
+            status: generationResult.status,
+            startedAt: new Date(),
+          }
+        );
+      console.log("[DEBUG] Update job status result:", updateResult);
 
       // 5. Add to queue for processing
       await this.durableObjectManager.queueManager.addToQueue({
@@ -347,14 +413,46 @@ export class GenerationWorkflow {
       }
 
       const jobData = jobResult.result as any;
-      const operationId = jobData.operationId;
+
+      // Debug logging
+      console.log(
+        "[DEBUG] Job data structure:",
+        JSON.stringify(jobData, null, 2)
+      );
+      console.log("[DEBUG] Looking for operationId in:");
+      console.log(
+        "  - jobData.jobState?.operationId:",
+        jobData.jobState?.operationId
+      );
+      console.log(
+        "  - jobData.jobState?.data?.operationId:",
+        jobData.jobState?.data?.operationId
+      );
+      console.log("  - jobData.operationId:", jobData.operationId);
+
+      const operationId =
+        jobData.jobState?.operationId ||
+        jobData.jobState?.data?.operationId ||
+        jobData.operationId;
+      const modelId =
+        jobData.jobState?.model ||
+        jobData.jobState?.data?.model ||
+        jobData.model;
 
       if (!operationId) {
+        console.log("[DEBUG] No operation ID found in any location");
         return { success: false, error: "No operation ID found" };
       }
 
-      // 2. Poll Veo3 for status
-      const statusResult = await this.veo3Service.pollOperation(operationId);
+      console.log("[DEBUG] Found operationId:", operationId);
+
+      if (!modelId) {
+        return { success: false, error: "No model ID found" };
+      }
+
+      // 2. Get provider and poll for status
+      const provider = this.providerFactory.getProviderForModel(modelId);
+      const statusResult = await provider.pollOperation(operationId);
       if (!statusResult.success) {
         return {
           success: false,
@@ -418,8 +516,18 @@ export class GenerationWorkflow {
     try {
       console.log(`Generation completed: ${generationId}`);
 
-      // 1. Download video from Veo3
-      const videoResponse = await fetch(result.video_url);
+      // 1. Extract video URL from Google API response
+      const videoUrl =
+        result.response?.generateVideoResponse?.generatedSamples?.[0]?.video
+          ?.uri;
+      if (!videoUrl) {
+        throw new Error("No video URL found in generation result");
+      }
+
+      console.log(`Downloading video from: ${videoUrl}`);
+
+      // 2. Download video from Google
+      const videoResponse = await fetch(videoUrl);
       if (!videoResponse.ok) {
         throw new Error(
           `Failed to download video: ${videoResponse.statusText}`
@@ -428,7 +536,7 @@ export class GenerationWorkflow {
 
       const videoData = await videoResponse.arrayBuffer();
 
-      // 2. Upload to R2
+      // 3. Upload to R2
       const uploadResult = await this.videoStorage.uploadVideo(
         new File([videoData], `${generationId}.mp4`, { type: "video/mp4" }),
         {
@@ -560,7 +668,8 @@ export class GenerationWorkflow {
    */
   async estimateGenerationCost(
     prompt: string,
-    parameters: Record<string, any> = {}
+    parameters: Record<string, any> = {},
+    modelId?: string
   ): Promise<{
     success: boolean;
     cost?: number;
@@ -568,16 +677,36 @@ export class GenerationWorkflow {
     error?: string;
   }> {
     try {
-      const request: Veo3GenerationRequest = {
+      const model = modelId
+        ? modelRegistry.getModel(modelId)
+        : modelRegistry.getDefaultModel();
+
+      if (!model) {
+        return {
+          success: false,
+          error: "No model available for cost estimation",
+        };
+      }
+
+      const provider = this.providerFactory.getProviderForModel(model.id);
+
+      const request: GenerationRequest = {
         prompt,
-        model: parameters.model || "veo-3",
-        duration: parameters.duration || 5,
-        aspect_ratio: parameters.aspect_ratio || "16:9",
-        quality: parameters.quality || "standard",
-        ...parameters,
+        model: model.id,
+        provider: model.provider,
+        parameters: {
+          duration: parameters.duration || model.parameters.duration.default,
+          aspect_ratio:
+            parameters.aspect_ratio || model.parameters.aspectRatio.default,
+          quality: parameters.quality || model.parameters.quality.default,
+          ...parameters,
+        },
+        userId: "",
+        conversationId: "",
+        messageId: "",
       };
 
-      return await this.veo3Service.estimateCost(request);
+      return await provider.estimateCost(request);
     } catch (error) {
       return {
         success: false,
@@ -601,11 +730,19 @@ export class GenerationWorkflow {
       }
 
       const jobData = jobResult.result as any;
-      const operationId = jobData.operationId;
+      const operationId =
+        jobData.jobState?.operationId ||
+        jobData.jobState?.data?.operationId ||
+        jobData.operationId;
+      const modelId =
+        jobData.jobState?.model ||
+        jobData.jobState?.data?.model ||
+        jobData.model;
 
-      // 2. Cancel in Veo3 if operation exists
-      if (operationId) {
-        await this.veo3Service.cancelOperation(operationId);
+      // 2. Cancel with provider if operation exists
+      if (operationId && modelId) {
+        const provider = this.providerFactory.getProviderForModel(modelId);
+        await provider.cancelOperation(operationId);
       }
 
       // 3. Cancel in Durable Objects
