@@ -51,6 +51,7 @@ CLEANUP_RETENTION_DAYS = "7"
 MAX_FILE_SIZE = "524288000" # 500MB in bytes
 R2_BASE_URL = "https://nimu-videos.your-domain.com" # Replace with your actual domain
 THUMBNAIL_GENERATION_ENABLED = "true"
+NEXTJS_URL = "https://your-nextjs-app.vercel.app" # Replace with your actual Next.js URL
 
 # Build configuration
 [build]

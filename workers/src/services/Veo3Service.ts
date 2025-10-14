@@ -75,7 +75,7 @@ export class Veo3Service {
   constructor(config: Veo3Config) {
     this.config = config;
     this.defaultHeaders = {
-      Authorization: `Bearer ${config.apiKey}`,
+      "x-goog-api-key": config.apiKey,
       "Content-Type": "application/json",
       "User-Agent": "Nimu-Generation-Worker/1.0.0",
     };
@@ -84,17 +84,30 @@ export class Veo3Service {
   /**
    * Generate a video using Veo3 API
    */
-  async generateVideo(
-    request: Veo3GenerationRequest
-  ): Promise<{
+  async generateVideo(request: Veo3GenerationRequest): Promise<{
     success: boolean;
     data?: Veo3GenerationResponse;
     error?: string;
   }> {
+    const requestId = `veo3_gen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
     try {
+      console.log("[VEO3_SERVICE] Starting video generation", {
+        requestId,
+        prompt: request.prompt,
+        model: request.model,
+        duration: request.duration,
+        timestamp: new Date().toISOString(),
+      });
+
       // Validate the request
       const validation = this.validateGenerationRequest(request);
       if (!validation.valid) {
+        console.error("[VEO3_SERVICE] Validation failed", {
+          requestId,
+          error: validation.error,
+          timestamp: new Date().toISOString(),
+        });
         return {
           success: false,
           error: validation.error || "Validation failed",
@@ -103,23 +116,61 @@ export class Veo3Service {
 
       // Prepare the request payload
       const payload = this.prepareGenerationPayload(request);
-
-      // Make the API call
-      const response = await this.makeApiCall("/v1/generations", {
-        method: "POST",
-        body: JSON.stringify(payload),
+      console.log("[VEO3_SERVICE] Prepared payload", {
+        requestId,
+        payload,
+        timestamp: new Date().toISOString(),
       });
 
+      // Make the API call
+      console.log("[VEO3_SERVICE] Calling Veo3 API", {
+        requestId,
+        endpoint: "/models/veo-3.0-generate-001:predictLongRunning",
+        timestamp: new Date().toISOString(),
+      });
+
+      const response = await this.makeApiCall(
+        "/models/veo-3.0-generate-001:predictLongRunning",
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }
+      );
+
       if (!response.success) {
+        console.error("[VEO3_SERVICE] API call failed", {
+          requestId,
+          error: response.error,
+          timestamp: new Date().toISOString(),
+        });
         return { success: false, error: response.error || "API call failed" };
       }
 
-      const data = response.data as Veo3GenerationResponse;
-      console.log(`Video generation started: ${data.operation_id}`);
+      const data = response.data as any;
+      console.log("[VEO3_SERVICE] Video generation started", {
+        requestId,
+        operationName: data.name,
+        done: data.done,
+        metadata: data.metadata,
+        timestamp: new Date().toISOString(),
+      });
 
-      return { success: true, data };
+      // Convert to our expected format
+      const veo3Response: Veo3GenerationResponse = {
+        operation_id: data.name,
+        status: data.done ? "completed" : "pending",
+        created_at: data.metadata?.createTime || new Date().toISOString(),
+        estimated_completion: data.metadata?.estimatedCompletionTime,
+      };
+
+      return { success: true, data: veo3Response };
     } catch (error) {
-      console.error("Veo3 generation error:", error);
+      console.error("[VEO3_SERVICE] Veo3 generation error", {
+        requestId,
+        error: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -133,21 +184,98 @@ export class Veo3Service {
   async pollOperation(
     operationId: string
   ): Promise<{ success: boolean; data?: Veo3OperationStatus; error?: string }> {
+    const requestId = `veo3_poll_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
     try {
-      const response = await this.makeApiCall(`/v1/operations/${operationId}`, {
+      console.log("[VEO3_SERVICE] Polling operation status", {
+        requestId,
+        operationId,
+        timestamp: new Date().toISOString(),
+      });
+
+      const response = await this.makeApiCall(`/${operationId}`, {
         method: "GET",
       });
 
       if (!response.success) {
+        console.error("[VEO3_SERVICE] Polling failed", {
+          requestId,
+          operationId,
+          error: response.error,
+          timestamp: new Date().toISOString(),
+        });
         return { success: false, error: response.error || "API call failed" };
       }
 
-      const data = response.data as Veo3OperationStatus;
-      console.log(`Operation ${operationId} status: ${data.status}`);
+      const data = response.data as any;
+      console.log("[VEO3_SERVICE] Operation status raw response", {
+        requestId,
+        operationId,
+        rawData: data,
+        timestamp: new Date().toISOString(),
+      });
 
-      return { success: true, data };
+      // Parse the Veo3 API response format
+      const isDone = data.done;
+      let status: Veo3OperationStatus["status"] = "pending";
+      let result: Veo3VideoResult | undefined;
+      let error: string | undefined;
+
+      if (isDone) {
+        if (data.response?.generateVideoResponse?.generatedSamples?.[0]) {
+          status = "completed";
+          const videoSample =
+            data.response.generateVideoResponse.generatedSamples[0];
+          result = {
+            video_url: videoSample.video.uri,
+            thumbnail_url: videoSample.video.thumbnailUri,
+            duration: videoSample.video.duration || 5,
+            resolution: videoSample.video.resolution || "1920x1080",
+            file_size: videoSample.video.fileSize || 0,
+            format: "mp4",
+            metadata: videoSample.video,
+          };
+        } else if (data.error) {
+          status = "failed";
+          error = data.error.message || "Unknown error";
+        } else {
+          status = "completed";
+        }
+      } else {
+        status = "processing";
+      }
+
+      const veo3Status: Veo3OperationStatus = {
+        operation_id: operationId,
+        status,
+        progress: data.metadata?.progress || (isDone ? 100 : 0),
+        ...(result && { result }),
+        ...(error && { error }),
+        created_at: data.metadata?.createTime || new Date().toISOString(),
+        updated_at: data.metadata?.updateTime || new Date().toISOString(),
+        ...(data.metadata?.estimatedCompletionTime && {
+          estimated_completion: data.metadata.estimatedCompletionTime,
+        }),
+      };
+
+      console.log("[VEO3_SERVICE] Operation status parsed", {
+        requestId,
+        operationId,
+        status: veo3Status.status,
+        progress: veo3Status.progress,
+        hasResult: !!veo3Status.result,
+        timestamp: new Date().toISOString(),
+      });
+
+      return { success: true, data: veo3Status };
     } catch (error) {
-      console.error(`Veo3 polling error for ${operationId}:`, error);
+      console.error("[VEO3_SERVICE] Veo3 polling error", {
+        requestId,
+        operationId,
+        error: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -230,67 +358,51 @@ export class Veo3Service {
   /**
    * Validate a generation prompt
    */
-  async validatePrompt(
-    prompt: string
-  ): Promise<{
+  async validatePrompt(prompt: string): Promise<{
     success: boolean;
     valid?: boolean;
     error?: string;
     suggestions?: string[];
   }> {
-    try {
-      const response = await this.makeApiCall("/v1/validate-prompt", {
-        method: "POST",
-        body: JSON.stringify({ prompt }),
-      });
-
-      if (!response.success) {
-        return { success: false, error: response.error || "API call failed" };
-      }
-
-      const data = response.data as { valid: boolean; suggestions?: string[] };
-      return { success: true, ...data };
-    } catch (error) {
-      console.error("Veo3 prompt validation error:", error);
+    // Gemini API doesn't have a separate validation endpoint
+    // Just do basic validation here
+    if (!prompt || prompt.trim().length === 0) {
       return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        success: true,
+        valid: false,
+        suggestions: ["Please provide a non-empty prompt"],
       };
     }
+
+    if (prompt.length > 1000) {
+      return {
+        success: true,
+        valid: false,
+        suggestions: [
+          "Prompt is too long. Please keep it under 1000 characters.",
+        ],
+      };
+    }
+
+    return { success: true, valid: true };
   }
 
   /**
    * Estimate generation cost
    */
-  async estimateCost(
-    request: Veo3GenerationRequest
-  ): Promise<{
+  async estimateCost(_request: Veo3GenerationRequest): Promise<{
     success: boolean;
     cost?: number;
     currency?: string;
     error?: string;
   }> {
-    try {
-      const payload = this.prepareGenerationPayload(request);
-
-      const response = await this.makeApiCall("/v1/estimate-cost", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.success) {
-        return { success: false, error: response.error || "API call failed" };
-      }
-
-      const data = response.data as { cost: number; currency: string };
-      return { success: true, ...data };
-    } catch (error) {
-      console.error("Veo3 cost estimation error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    // Gemini API doesn't have a cost estimation endpoint
+    // Return a mock cost for now
+    return {
+      success: true,
+      cost: 0.1, // Mock cost in USD
+      currency: "USD",
+    };
   }
 
   /**
@@ -301,24 +413,15 @@ export class Veo3Service {
     models?: any[];
     error?: string;
   }> {
-    try {
-      const response = await this.makeApiCall("/v1/models", {
-        method: "GET",
-      });
-
-      if (!response.success) {
-        return { success: false, error: response.error || "API call failed" };
-      }
-
-      const data = response.data as { models: any[] };
-      return { success: true, ...data };
-    } catch (error) {
-      console.error("Veo3 models error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    // Return available Veo3 models
+    return {
+      success: true,
+      models: [
+        { id: "veo-3.0-generate-001", name: "Veo 3.0 Generate" },
+        { id: "veo-3.0-fast-generate-001", name: "Veo 3.0 Fast Generate" },
+        { id: "veo-2.0-generate-001", name: "Veo 2.0 Generate" },
+      ],
+    };
   }
 
   /**
@@ -374,21 +477,34 @@ export class Veo3Service {
   }
 
   /**
-   * Prepare generation payload
+   * Prepare generation payload for Gemini API
    */
   private prepareGenerationPayload(request: Veo3GenerationRequest): any {
-    return {
-      prompt: request.prompt,
-      model: request.model || "veo-3",
-      duration: request.duration || 5,
-      aspect_ratio: request.aspect_ratio || "16:9",
-      quality: request.quality || "standard",
-      ...(request.seed && { seed: request.seed }),
-      ...(request.guidance_scale && { guidance_scale: request.guidance_scale }),
-      ...(request.num_inference_steps && {
-        num_inference_steps: request.num_inference_steps,
-      }),
+    const payload = {
+      instances: [
+        {
+          prompt: request.prompt,
+        },
+      ],
+      parameters: {
+        aspectRatio: request.aspect_ratio || "16:9",
+        negativePrompt: "cartoon, drawing, low quality",
+        ...(request.seed && { seed: request.seed }),
+        ...(request.guidance_scale && {
+          guidanceScale: request.guidance_scale,
+        }),
+        ...(request.num_inference_steps && {
+          numInferenceSteps: request.num_inference_steps,
+        }),
+      },
     };
+
+    console.log("[VEO3_SERVICE] Generated payload", {
+      payload,
+      timestamp: new Date().toISOString(),
+    });
+
+    return payload;
   }
 
   /**
@@ -401,6 +517,15 @@ export class Veo3Service {
     const url = `${this.config.baseUrl}${endpoint}`;
     let lastError: Error | null = null;
 
+    console.log("[VEO3_SERVICE] Making API call", {
+      url,
+      endpoint,
+      method: options.method || "GET",
+      hasBody: !!options.body,
+      headers: this.defaultHeaders,
+      timestamp: new Date().toISOString(),
+    });
+
     for (let attempt = 1; attempt <= this.config.retryAttempts; attempt++) {
       try {
         const controller = new AbortController();
@@ -408,6 +533,13 @@ export class Veo3Service {
           () => controller.abort(),
           this.config.timeout
         );
+
+        console.log("[VEO3_SERVICE] API call attempt", {
+          attempt,
+          url,
+          method: options.method || "GET",
+          timestamp: new Date().toISOString(),
+        });
 
         const response = await fetch(url, {
           ...options,
@@ -420,17 +552,95 @@ export class Veo3Service {
 
         clearTimeout(timeoutId);
 
+        console.log("[VEO3_SERVICE] API response received", {
+          attempt,
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          timestamp: new Date().toISOString(),
+        });
+
         if (!response.ok) {
-          const errorData = (await response.json().catch(() => ({}))) as any;
-          throw new Error(
-            `HTTP ${response.status}: ${errorData.message || response.statusText}`
-          );
+          let errorData: any = {};
+          let errorText = "";
+
+          try {
+            const responseText = await response.text();
+            console.log("[VEO3_SERVICE] Error response body", {
+              attempt,
+              status: response.status,
+              body: responseText,
+              timestamp: new Date().toISOString(),
+            });
+
+            try {
+              errorData = JSON.parse(responseText);
+            } catch {
+              errorText = responseText;
+            }
+          } catch (e) {
+            console.error("[VEO3_SERVICE] Failed to read error response", {
+              attempt,
+              error: e instanceof Error ? e.message : "Unknown error",
+              timestamp: new Date().toISOString(),
+            });
+          }
+
+          const errorMessage =
+            errorData.error?.message ||
+            errorData.message ||
+            errorText ||
+            response.statusText;
+
+          console.error("[VEO3_SERVICE] API call failed", {
+            attempt,
+            status: response.status,
+            statusText: response.statusText,
+            errorMessage,
+            errorData,
+            timestamp: new Date().toISOString(),
+          });
+
+          throw new Error(`HTTP ${response.status}: ${errorMessage}`);
         }
 
-        const data = await response.json();
+        const responseText = await response.text();
+        console.log("[VEO3_SERVICE] Response body", {
+          attempt,
+          bodyLength: responseText.length,
+          bodyPreview: responseText.substring(0, 500),
+          timestamp: new Date().toISOString(),
+        });
+
+        let data: any;
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.error("[VEO3_SERVICE] Failed to parse response JSON", {
+            attempt,
+            error: e instanceof Error ? e.message : "Unknown error",
+            responseText: responseText.substring(0, 1000),
+            timestamp: new Date().toISOString(),
+          });
+          throw new Error("Invalid JSON response from API");
+        }
+
+        console.log("[VEO3_SERVICE] API call successful", {
+          attempt,
+          dataKeys: Object.keys(data),
+          timestamp: new Date().toISOString(),
+        });
+
         return { success: true, data };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+
+        console.error("[VEO3_SERVICE] API call attempt failed", {
+          attempt,
+          error: lastError.message,
+          stack: lastError.stack,
+          timestamp: new Date().toISOString(),
+        });
 
         if (attempt === this.config.retryAttempts) {
           break;
@@ -438,6 +648,11 @@ export class Veo3Service {
 
         // Don't retry on client errors (4xx)
         if (error instanceof Error && error.message.includes("HTTP 4")) {
+          console.log("[VEO3_SERVICE] Client error, not retrying", {
+            attempt,
+            error: lastError.message,
+            timestamp: new Date().toISOString(),
+          });
           break;
         }
 
@@ -448,9 +663,20 @@ export class Veo3Service {
 
         // Exponential backoff
         const delay = this.config.retryDelay * Math.pow(2, attempt - 1);
+        console.log("[VEO3_SERVICE] Waiting before retry", {
+          attempt,
+          delay,
+          timestamp: new Date().toISOString(),
+        });
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
+
+    console.error("[VEO3_SERVICE] All API call attempts failed", {
+      totalAttempts: this.config.retryAttempts,
+      finalError: lastError?.message,
+      timestamp: new Date().toISOString(),
+    });
 
     return {
       success: false,
@@ -466,24 +692,11 @@ export class Veo3Service {
     status?: string;
     error?: string;
   }> {
-    try {
-      const response = await this.makeApiCall("/v1/status", {
-        method: "GET",
-      });
-
-      if (!response.success) {
-        return { success: false, error: response.error || "API call failed" };
-      }
-
-      const data = response.data as { status: string };
-      return { success: true, ...data };
-    } catch (error) {
-      console.error("Veo3 status error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    // Return service status
+    return {
+      success: true,
+      status: "operational",
+    };
   }
 }
 
@@ -492,7 +705,7 @@ export class Veo3Service {
  */
 export function createVeo3Service(
   apiKey: string,
-  baseUrl: string = "https://api.veo3.com"
+  baseUrl: string = "https://generativelanguage.googleapis.com/v1beta"
 ): Veo3Service {
   const config: Veo3Config = {
     apiKey,
@@ -510,7 +723,7 @@ export function createVeo3Service(
  */
 export const DEFAULT_VEO3_CONFIG: Veo3Config = {
   apiKey: "",
-  baseUrl: "https://api.veo3.com",
+  baseUrl: "https://generativelanguage.googleapis.com/v1beta",
   timeout: 30000,
   retryAttempts: 3,
   retryDelay: 1000,

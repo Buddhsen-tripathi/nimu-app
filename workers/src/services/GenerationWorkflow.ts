@@ -57,7 +57,10 @@ export class GenerationWorkflow {
     videoStorage: VideoStorageHelper
   ) {
     this.config = config;
-    this.veo3Service = createVeo3Service(config.veo3ApiKey, config.veo3BaseUrl);
+    this.veo3Service = createVeo3Service(
+      config.veo3ApiKey,
+      config.veo3BaseUrl || "https://generativelanguage.googleapis.com/v1beta"
+    );
     this.durableObjectManager = durableObjectManager;
     this.videoStorage = videoStorage;
   }
@@ -70,12 +73,31 @@ export class GenerationWorkflow {
     prompt: string,
     parameters: Record<string, any> = {}
   ): Promise<WorkflowResult> {
+    const requestId = `gen_start_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
     try {
-      console.log(`Starting generation workflow for user ${userId}`);
+      console.log("[GENERATION_WORKFLOW] Starting generation", {
+        requestId,
+        userId,
+        prompt,
+        parameters,
+        timestamp: new Date().toISOString(),
+      });
 
       // 1. Validate prompt
+      console.log("[GENERATION_WORKFLOW] Validating prompt", {
+        requestId,
+        prompt,
+        timestamp: new Date().toISOString(),
+      });
+
       const validation = await this.veo3Service.validatePrompt(prompt);
       if (!validation.success) {
+        console.error("[GENERATION_WORKFLOW] Validation failed", {
+          requestId,
+          error: validation.error,
+          timestamp: new Date().toISOString(),
+        });
         return {
           success: false,
           error: validation.error || "Validation failed",
@@ -83,6 +105,14 @@ export class GenerationWorkflow {
       }
 
       if (!validation.valid) {
+        console.log(
+          "[GENERATION_WORKFLOW] Invalid prompt, clarification required",
+          {
+            requestId,
+            suggestions: validation.suggestions,
+            timestamp: new Date().toISOString(),
+          }
+        );
         return {
           success: false,
           error: "Invalid prompt",
@@ -92,16 +122,40 @@ export class GenerationWorkflow {
       }
 
       // 2. Estimate cost
+      console.log("[GENERATION_WORKFLOW] Estimating cost", {
+        requestId,
+        prompt,
+        parameters,
+        timestamp: new Date().toISOString(),
+      });
+
       const costEstimate = await this.estimateGenerationCost(
         prompt,
         parameters
       );
       if (!costEstimate.success) {
-        console.warn("Failed to estimate cost:", costEstimate.error);
+        console.warn("[GENERATION_WORKFLOW] Failed to estimate cost", {
+          requestId,
+          error: costEstimate.error,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        console.log("[GENERATION_WORKFLOW] Cost estimated", {
+          requestId,
+          cost: costEstimate.cost,
+          timestamp: new Date().toISOString(),
+        });
       }
 
       // 3. Create job in JobManager
       const generationId = this.generateId();
+      console.log("[GENERATION_WORKFLOW] Creating job", {
+        requestId,
+        generationId,
+        userId,
+        timestamp: new Date().toISOString(),
+      });
+
       const jobResult = await this.durableObjectManager.createAndQueueJob({
         id: generationId,
         generationId,
@@ -116,6 +170,12 @@ export class GenerationWorkflow {
       });
 
       if (!jobResult.success) {
+        console.error("[GENERATION_WORKFLOW] Failed to create job", {
+          requestId,
+          generationId,
+          error: jobResult.error,
+          timestamp: new Date().toISOString(),
+        });
         return { success: false, error: jobResult.error || "Job not found" };
       }
 
@@ -126,7 +186,13 @@ export class GenerationWorkflow {
         { costEstimate: costEstimate.cost }
       );
 
-      console.log(`Generation workflow started: ${generationId}`);
+      console.log("[GENERATION_WORKFLOW] Generation workflow started", {
+        requestId,
+        generationId,
+        userId,
+        timestamp: new Date().toISOString(),
+      });
+
       return {
         success: true,
         generationId,
@@ -137,7 +203,12 @@ export class GenerationWorkflow {
         ),
       };
     } catch (error) {
-      console.error("Generation workflow start error:", error);
+      console.error("[GENERATION_WORKFLOW] Generation workflow start error", {
+        requestId,
+        error: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -193,14 +264,22 @@ export class GenerationWorkflow {
 
       const jobData = jobResult.result as any;
 
+      // Debug: Log job data to see what we have
+      console.log("[GENERATION_WORKFLOW] Job data retrieved", {
+        generationId,
+        jobData: JSON.stringify(jobData, null, 2),
+        timestamp: new Date().toISOString(),
+      });
+
       // 2. Prepare Veo3 request
+      const actualJobData = jobData.jobState?.data || jobData;
       const veo3Request: Veo3GenerationRequest = {
-        prompt: jobData.prompt,
-        model: jobData.model,
-        duration: jobData.parameters?.duration || 5,
-        aspect_ratio: jobData.parameters?.aspect_ratio || "16:9",
-        quality: jobData.parameters?.quality || "standard",
-        ...jobData.parameters,
+        prompt: actualJobData.prompt,
+        model: actualJobData.model,
+        duration: actualJobData.parameters?.duration || 5,
+        aspect_ratio: actualJobData.parameters?.aspect_ratio || "16:9",
+        quality: actualJobData.parameters?.quality || "standard",
+        ...actualJobData.parameters,
       };
 
       // 3. Start Veo3 generation

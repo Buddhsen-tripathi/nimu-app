@@ -6,7 +6,7 @@ DATABASE_URL=postgresql://username:password@localhost:5432/nimu_dev
 
 # Veo3 API (get from https://veo3.com)
 VEO3_API_KEY=your_veo3_api_key_here
-VEO3_API_URL=https://api.veo3.com
+VEO3_API_URL=https://generativelanguage.googleapis.com/v1beta
 
 # Authentication (use strong secrets in production)
 JWT_SECRET=your_jwt_secret_for_development_only

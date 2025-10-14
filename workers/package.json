@@ -15,7 +15,7 @@
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "test": "vitest",
     "test:watch": "vitest --watch",
-    "clean": "rm -rf dist",
+    "clean": "rimraf dist",
     "prebuild": "npm run clean"
   },
   "dependencies": {
@@ -27,6 +27,7 @@
     "@typescript-eslint/parser": "^6.17.0",
     "@vitest/ui": "^1.1.0",
     "eslint": "^8.56.0",
+    "rimraf": "^6.0.1",
     "typescript": "^5.3.3",
     "vitest": "^1.1.0",
     "wrangler": "^4.42.2"

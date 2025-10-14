@@ -28,6 +28,7 @@ import {
   RATE_LIMIT_CONFIGS,
   ErrorHandler,
 } from "./middleware";
+import { GenerationWorkflow } from "./services/GenerationWorkflow";
 
 // Environment interface combining all services
 export interface Env {
@@ -46,10 +47,12 @@ export interface Env {
   MAX_FILE_SIZE: string;
   R2_BASE_URL: string;
   THUMBNAIL_GENERATION_ENABLED: string;
+  NEXTJS_URL: string;
 
   // Secrets (set via wrangler secrets)
   JWT_SECRET?: string;
   VEO3_API_KEY?: string;
+  VEO3_API_URL?: string;
   DATABASE_URL?: string;
 }
 
@@ -61,6 +64,234 @@ const CORS_HEADERS = {
     "Content-Type, Authorization, X-Requested-With",
   "Access-Control-Max-Age": "86400",
 };
+
+/**
+ * Process generation in background
+ */
+async function processGenerationInBackground(
+  generationId: string,
+  userId: string,
+  prompt: string,
+  parameters: any,
+  durableObjectManager: DurableObjectManager,
+  videoStorage: VideoStorageHelper,
+  env: Env
+): Promise<void> {
+  const requestId = `bg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const startTime = Date.now();
+
+  try {
+    console.log("[BACKGROUND_PROCESSING] Starting generation", {
+      requestId,
+      generationId,
+      userId,
+      prompt,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Initialize GenerationWorkflow
+    const workflow = new GenerationWorkflow(
+      {
+        veo3ApiKey: env.VEO3_API_KEY!,
+        veo3BaseUrl:
+          env.VEO3_API_URL ||
+          "https://generativelanguage.googleapis.com/v1beta",
+        maxRetries: 3,
+        pollingInterval: 5000,
+        timeoutMs: 300000,
+        enableClarifications: false,
+        enableProgressTracking: true,
+      },
+      durableObjectManager,
+      videoStorage
+    );
+
+    // Step 1: Start generation (setup)
+    const startResult = await workflow.startGeneration(
+      userId,
+      prompt,
+      parameters
+    );
+
+    if (!startResult.success) {
+      console.error("[BACKGROUND_PROCESSING] Start generation failed", {
+        requestId,
+        generationId,
+        error: startResult.error,
+        timestamp: new Date().toISOString(),
+      });
+
+      await sendWebhookToNextJS(
+        {
+          event: "generation.failed",
+          jobId: generationId,
+          generationId: generationId,
+          userId: userId,
+          status: "failed",
+          error: startResult.error,
+          timestamp: new Date().toISOString(),
+        },
+        env
+      );
+      return;
+    }
+
+    console.log("[BACKGROUND_PROCESSING] Generation started, now confirming", {
+      requestId,
+      generationId,
+      workflowGenerationId: startResult.generationId,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Step 2: Confirm generation (calls Veo3 API)
+    const confirmResult = await workflow.confirmGeneration(
+      startResult.generationId!
+    );
+
+    if (!confirmResult.success) {
+      console.error("[BACKGROUND_PROCESSING] Confirm generation failed", {
+        requestId,
+        generationId,
+        error: confirmResult.error,
+        timestamp: new Date().toISOString(),
+      });
+
+      await sendWebhookToNextJS(
+        {
+          event: "generation.failed",
+          jobId: generationId,
+          generationId: generationId,
+          userId: userId,
+          status: "failed",
+          error: confirmResult.error,
+          timestamp: new Date().toISOString(),
+        },
+        env
+      );
+      return;
+    }
+
+    console.log(
+      "[BACKGROUND_PROCESSING] Generation confirmed, now processing",
+      {
+        requestId,
+        generationId,
+        operationId: confirmResult.operationId,
+        timestamp: new Date().toISOString(),
+      }
+    );
+
+    // Step 3: Process generation (poll until complete)
+    const processResult = await workflow.processGeneration(
+      startResult.generationId!
+    );
+
+    console.log("[BACKGROUND_PROCESSING] Generation workflow completed", {
+      requestId,
+      generationId,
+      success: processResult.success,
+      videoUrl: processResult.videoUrl,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Send webhook to Next.js
+    if (processResult.success && processResult.videoUrl) {
+      await sendWebhookToNextJS(
+        {
+          event: "generation.completed",
+          jobId: generationId,
+          generationId: generationId,
+          userId: userId,
+          status: "completed",
+          result: {
+            videoUrl: processResult.videoUrl,
+            duration: parameters.duration,
+            processingTime: Date.now() - startTime,
+          },
+          timestamp: new Date().toISOString(),
+        },
+        env
+      );
+    } else {
+      await sendWebhookToNextJS(
+        {
+          event: "generation.failed",
+          jobId: generationId,
+          generationId: generationId,
+          userId: userId,
+          status: "failed",
+          error: processResult.error || "Generation failed",
+          timestamp: new Date().toISOString(),
+        },
+        env
+      );
+    }
+  } catch (error) {
+    console.error("[BACKGROUND_PROCESSING] Error", {
+      requestId,
+      generationId,
+      error: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Send failure webhook
+    await sendWebhookToNextJS(
+      {
+        event: "generation.failed",
+        jobId: generationId,
+        generationId: generationId,
+        userId: userId,
+        status: "failed",
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
+      },
+      env
+    );
+  }
+}
+
+/**
+ * Send webhook to Next.js
+ */
+async function sendWebhookToNextJS(data: any, env: Env): Promise<void> {
+  const webhookUrl = `${env.NEXTJS_URL}/api/webhooks/worker`;
+
+  try {
+    console.log("[WEBHOOK] Sending webhook", {
+      event: data.event,
+      generationId: data.generationId,
+      webhookUrl,
+      timestamp: new Date().toISOString(),
+    });
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Webhook failed: ${response.status}`);
+    }
+
+    console.log("[WEBHOOK] Webhook sent successfully", {
+      event: data.event,
+      generationId: data.generationId,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[WEBHOOK] Failed to send webhook", {
+      event: data.event,
+      generationId: data.generationId,
+      error: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString(),
+    });
+    // TODO: Implement retry logic
+  }
+}
 
 /**
  * Main Worker object
@@ -156,7 +387,8 @@ const Worker = {
           request,
           durableObjectManager,
           videoStorage,
-          env
+          env,
+          _ctx
         );
       }
 
@@ -299,8 +531,9 @@ async function handleHealthCheck(env: Env): Promise<Response> {
 async function handleGenerationRoutes(
   request: Request,
   durableObjectManager: DurableObjectManager,
-  _videoStorage: VideoStorageHelper, // TODO: Use for video operations
-  env: Env
+  videoStorage: VideoStorageHelper,
+  env: Env,
+  _ctx: ExecutionContext
 ): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -335,7 +568,7 @@ async function handleGenerationRoutes(
 
       const generationData = {
         ...(body as Record<string, any>),
-        id: generateId(),
+        id: (body as any).generationId || generateId(), // ← Use provided ID or generate new one
         userId,
         status: "pending_clarification",
         createdAt: new Date(),
@@ -361,6 +594,22 @@ async function handleGenerationRoutes(
           status: 500,
           headers: { "Content-Type": "application/json" },
         });
+      }
+
+      // ✅ START PROCESSING IMMEDIATELY
+      if (result.success) {
+        // Trigger background processing
+        _ctx.waitUntil(
+          processGenerationInBackground(
+            generationData.id,
+            userId!,
+            ((generationData as any).prompt as string) ?? "",
+            (generationData as any).parameters || {},
+            durableObjectManager,
+            videoStorage,
+            env
+          )
+        );
       }
 
       return new Response(

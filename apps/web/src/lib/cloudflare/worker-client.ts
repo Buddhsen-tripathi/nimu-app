@@ -30,6 +30,7 @@ export interface WorkerResponse<T = any> {
 }
 
 export interface GenerationRequest {
+  generationId?: string; // ← Add generation ID
   prompt: string;
   parameters?: {
     duration?: number;

@@ -25,19 +25,44 @@ const createGenerationSchema = z.object({
 
 // POST /api/generations - Create generation request
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  const requestId = `gen_create_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
     });
 
     if (!session?.user) {
+      console.log("[GENERATION_CREATE] Unauthorized request", {
+        requestId,
+        timestamp: new Date().toISOString(),
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
+
+    // Log 1: Request received
+    console.log("[GENERATION_CREATE] Request received", {
+      requestId,
+      userId: session.user.id,
+      conversationId: body.conversationId,
+      messageId: body.messageId,
+      prompt: body.prompt,
+      provider: body.provider,
+      type: body.type,
+      timestamp: new Date().toISOString(),
+    });
+
     const validation = createGenerationSchema.safeParse(body);
 
     if (!validation.success) {
+      console.error("[GENERATION_CREATE] Validation failed", {
+        requestId,
+        errors: validation.error.issues,
+        timestamp: new Date().toISOString(),
+      });
       return NextResponse.json(
         { error: "Invalid input", details: validation.error.issues },
         { status: 400 }
@@ -62,16 +87,33 @@ export async function POST(request: NextRequest) {
 
     const generation = await createGeneration(generationData, session.user.id);
 
+    // Log 2: Generation created in DB
+    console.log("[GENERATION_CREATE] Generation created in DB", {
+      requestId,
+      generationId: generation.id,
+      status: generation.status,
+      timestamp: new Date().toISOString(),
+    });
+
     // Initialize Worker client with user ID as auth token
     const workerClient = createWorkerClient(
       undefined, // Use default worker URL
       `dev_${session.user.id}` // Use dev token format for authentication
     );
 
+    // Log 3: Calling Worker API
+    console.log("[GENERATION_CREATE] Calling Worker API", {
+      requestId,
+      generationId: generation.id,
+      workerUrl: workerClient["config"].baseUrl,
+      timestamp: new Date().toISOString(),
+    });
+
     // Send generation request to Cloudflare Worker
     const workerResponse = await workerClient.createGeneration(
       session.user.id,
       {
+        generationId: generation.id, // ← Send the generation ID to Worker
         prompt: validation.data.prompt,
         parameters: {
           ...validation.data.parameters,
@@ -84,11 +126,38 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    // Log 4: Worker response
+    console.log("[GENERATION_CREATE] Worker response", {
+      requestId,
+      generationId: generation.id,
+      success: workerResponse.success,
+      workerGenerationId: workerResponse.data?.generationId,
+      queuePosition: workerResponse.data?.queuePosition,
+      clarificationRequired: workerResponse.data?.clarificationRequired,
+      error: workerResponse.error,
+      timestamp: new Date().toISOString(),
+    });
+
     if (!workerResponse.success) {
-      console.error("Worker generation creation failed:", workerResponse.error);
+      console.error("[GENERATION_CREATE] Worker generation creation failed", {
+        requestId,
+        generationId: generation.id,
+        error: workerResponse.error,
+        timestamp: new Date().toISOString(),
+      });
       // Return the database generation even if Worker fails
       // The Worker can retry later
     }
+
+    // Log 5: Returning response
+    const processingTime = Date.now() - startTime;
+    console.log("[GENERATION_CREATE] Returning response", {
+      requestId,
+      generationId: generation.id,
+      status: generation.status,
+      processingTime,
+      timestamp: new Date().toISOString(),
+    });
 
     return NextResponse.json(
       {
@@ -100,7 +169,14 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Error creating generation:", error);
+    const processingTime = Date.now() - startTime;
+    console.error("[GENERATION_CREATE] Error creating generation", {
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      processingTime,
+      timestamp: new Date().toISOString(),
+    });
 
     // Handle specific error cases
     if (error instanceof Error) {

@@ -38,24 +38,54 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const startTime = Date.now();
+  const requestId = `gen_status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
     });
 
     if (!session?.user) {
+      console.log("[GENERATION_STATUS] Unauthorized request", {
+        requestId,
+        generationId: params.id,
+        timestamp: new Date().toISOString(),
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Log 1: Status check request
+    console.log("[GENERATION_STATUS] Request received", {
+      requestId,
+      generationId: params.id,
+      userId: session.user.id,
+      timestamp: new Date().toISOString(),
+    });
 
     // First, verify the generation exists and user has access
     const generation = await getGenerationById(params.id, session.user.id);
 
     if (!generation) {
+      console.error("[GENERATION_STATUS] Generation not found", {
+        requestId,
+        generationId: params.id,
+        userId: session.user.id,
+        timestamp: new Date().toISOString(),
+      });
       return NextResponse.json(
         { error: "Generation not found" },
         { status: 404 }
       );
     }
+
+    // Log 2: Generation found
+    console.log("[GENERATION_STATUS] Generation found", {
+      requestId,
+      generationId: params.id,
+      dbStatus: generation.status,
+      timestamp: new Date().toISOString(),
+    });
 
     // Get status from Cloudflare Worker
     const workerClient = createWorkerClient();
@@ -64,11 +94,35 @@ export async function GET(
     const workerGenerationId =
       (generation as any).workerGenerationId || params.id;
 
+    // Log 3: Checking Worker status
+    console.log("[GENERATION_STATUS] Checking Worker status", {
+      requestId,
+      generationId: params.id,
+      workerGenerationId,
+      timestamp: new Date().toISOString(),
+    });
+
     const workerResponse =
       await workerClient.getGenerationStatus(workerGenerationId);
 
+    // Log 4: Worker response
+    console.log("[GENERATION_STATUS] Worker response", {
+      requestId,
+      generationId: params.id,
+      success: workerResponse.success,
+      status: workerResponse.data?.status,
+      progress: workerResponse.data?.progress,
+      error: workerResponse.error,
+      timestamp: new Date().toISOString(),
+    });
+
     if (!workerResponse.success) {
-      console.error("Worker status check failed:", workerResponse.error);
+      console.error("[GENERATION_STATUS] Worker status check failed", {
+        requestId,
+        generationId: params.id,
+        error: workerResponse.error,
+        timestamp: new Date().toISOString(),
+      });
       // Return database status if Worker fails
       return NextResponse.json({
         generation,
@@ -77,13 +131,32 @@ export async function GET(
       });
     }
 
+    // Log 5: Returning response
+    const processingTime = Date.now() - startTime;
+    console.log("[GENERATION_STATUS] Returning response", {
+      requestId,
+      generationId: params.id,
+      dbStatus: generation.status,
+      workerStatus: workerResponse.data?.status,
+      processingTime,
+      timestamp: new Date().toISOString(),
+    });
+
     return NextResponse.json({
       generation,
       workerStatus: workerResponse.data,
       lastUpdated: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("Error getting generation status:", error);
+    const processingTime = Date.now() - startTime;
+    console.error("[GENERATION_STATUS] Error getting generation status", {
+      requestId,
+      generationId: params.id,
+      error: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      processingTime,
+      timestamp: new Date().toISOString(),
+    });
 
     // Handle specific error cases
     if (error instanceof Error) {
