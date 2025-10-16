@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Github, Twitter, Linkedin, Youtube } from "lucide-react";
 
 const navigation = {
@@ -48,12 +49,16 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8 lg:py-16">
         <div className="grid grid-cols-2 gap-8 lg:grid-cols-6">
           <div className="col-span-2">
-            <div className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-gray-900 to-gray-700">
-                <span className="text-base font-bold text-white">N</span>
-              </div>
+            <Link href="/" className="flex items-center space-x-2">
+              <Image
+                src="/logo.png"
+                alt="Nimu Logo"
+                width={32}
+                height={32}
+                className="h-8 w-8"
+              />
               <span className="text-xl font-bold text-gray-900">Nimu</span>
-            </div>
+            </Link>
             <p className="mt-4 text-sm leading-6 text-gray-600 max-w-xs">
               AI-powered video generation platform for creators, businesses, and developers.
             </p>

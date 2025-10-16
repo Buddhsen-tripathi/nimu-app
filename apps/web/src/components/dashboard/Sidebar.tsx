@@ -1,5 +1,6 @@
 "use client";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -227,16 +228,18 @@ export default function Sidebar({
             )}
           >
             <div className="flex items-center gap-2 border-b border-zinc-200/60 px-3 py-3 dark:border-zinc-800">
-              <div className="flex items-center gap-2">
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-primary to-ring text-primary-foreground shadow-sm dark:from-zinc-200 dark:to-zinc-300 dark:text-zinc-900">
-                  <Asterisk className="h-4 w-4" />
-                </div>
+              <Link href="/" className="flex items-center gap-2 hover:opacity-80">
+                <Image
+                  src="/logo.png"
+                  alt="Nimu Logo"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8"
+                />
                 <div className="text-sm font-semibold tracking-tight">
-                  <Link href="/" className="hover:underline">
-                    Nimu App
-                  </Link>
+                  Nimu App
                 </div>
-              </div>
+              </Link>
               <div className="ml-auto flex items-center gap-1">
                 <button
                   onClick={() => setSidebarCollapsed(true)}

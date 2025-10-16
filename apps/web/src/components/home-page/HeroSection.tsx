@@ -134,7 +134,6 @@ export default function HeroSection({ onOpenSignUp }: HeroSectionProps) {
                         </div>
 
                         <motion.button
-                          whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           className="flex w-full items-center justify-center rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800"
                         >
