@@ -25,6 +25,7 @@ import SettingsPopover from "./SettingsPopover";
 import { cls } from "./utils";
 import { useState, useEffect } from "react";
 import { SidebarProps } from "./types";
+import Link from "next/link";
 
 export default function Sidebar({
   open,
@@ -231,7 +232,9 @@ export default function Sidebar({
                   <Asterisk className="h-4 w-4" />
                 </div>
                 <div className="text-sm font-semibold tracking-tight">
-                  Nimu App
+                  <Link href="/" className="hover:underline">
+                    Nimu App
+                  </Link>
                 </div>
               </div>
               <div className="ml-auto flex items-center gap-1">

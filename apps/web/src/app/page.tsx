@@ -2,9 +2,13 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import SignUpModal from "@/components/auth/SignUpModal";
 import LoginModal from "@/components/auth/LoginModal";
+import Navbar from "@/components/home-page/Navbar";
+import HeroSection from "@/components/home-page/HeroSection";
+import FeaturesSection from "@/components/home-page/Features";
+import CTASection from "@/components/home-page/CTA";
+import Footer from "@/components/home-page/Footer";
 
 function PageContent() {
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
@@ -12,7 +16,6 @@ function PageContent() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    // Check if auth query parameter is present to auto-open login modal
     const authParam = searchParams.get("auth");
     if (authParam === "login") {
       setIsLoginOpen(true);
@@ -30,21 +33,12 @@ function PageContent() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Nimu</h1>
-        <p className="text-lg text-muted-foreground mb-8">
-          Your AI-powered video and audio generation platform
-        </p>
-        <div className="space-x-4">
-          <Button onClick={handleOpenLogin} variant="default" size="default">
-            Sign In
-          </Button>
-          <Button onClick={handleOpenSignUp} variant="outline" size="default">
-            Sign Up
-          </Button>
-        </div>
-      </div>
+    <>
+      <Navbar onOpenSignUp={handleOpenSignUp} onOpenLogin={handleOpenLogin} />
+      <HeroSection onOpenSignUp={handleOpenSignUp} />
+      <FeaturesSection />
+      <CTASection onOpenSignUp={handleOpenSignUp} />
+      <Footer />
 
       <SignUpModal
         open={isSignUpOpen}
@@ -57,32 +51,13 @@ function PageContent() {
         onOpenChange={setIsLoginOpen}
         onSwitchToSignUp={handleOpenSignUp}
       />
-    </div>
+    </>
   );
 }
 
 export default function Page() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4">Welcome to Nimu</h1>
-            <p className="text-lg text-muted-foreground mb-8">
-              Your AI-powered video and audio generation platform
-            </p>
-            <div className="space-x-4">
-              <Button variant="default" size="default" disabled>
-                Sign In
-              </Button>
-              <Button variant="outline" size="default" disabled>
-                Sign Up
-              </Button>
-            </div>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={null}>
       <PageContent />
     </Suspense>
   );
