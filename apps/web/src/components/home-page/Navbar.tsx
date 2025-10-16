@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
+import { Menu, X, ChevronDown } from "lucide-react";
 
 interface NavbarProps {
   onOpenSignUp: () => void;
@@ -13,79 +13,147 @@ interface NavbarProps {
 export default function Navbar({ onOpenSignUp, onOpenLogin }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
+      setIsScrolled(window.scrollY > 20);
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const navLinks = [
-    { name: 'Product', href: '#' },
-    { name: 'Enterprise', href: '#' },
-    { name: 'Pricing', href: '#' },
-    { name: 'Resources', href: '#' },
+  const productDropdown = [
+    { name: "Video Generation", href: "#" },
+    { name: "Audio Synthesis", href: "#" },
+    { name: "Style Transfer", href: "#" },
+    { name: "Templates", href: "#" },
+  ];
+
+  const resourcesDropdown = [
+    { name: "Documentation", href: "#" },
+    { name: "Blog", href: "#" },
+    { name: "Community", href: "#" },
+    { name: "Help Center", href: "#" },
   ];
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 border-b transition-colors duration-200 ${
-      isScrolled 
-        ? 'border-neutral-200 bg-white/80 backdrop-blur-xl' 
-        : 'border-transparent bg-white'
-    }`}>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
+        isScrolled
+          ? "border-b border-gray-200 bg-white/95 backdrop-blur-md shadow-sm"
+          : "border-b border-transparent bg-white"
+      }`}
+    >
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-black">
-                <span className="text-base font-bold text-white">N</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-gray-900 to-gray-700">
+                <span className="text-lg font-bold text-white">N</span>
               </div>
-              <span className="text-xl font-semibold text-neutral-900">
-                Nimu
-              </span>
+              <span className="text-xl font-bold text-gray-900">Nimu</span>
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
           <div className="hidden items-center space-x-1 md:flex">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-              >
-                {link.name}
-                {['Product', 'Resources'].includes(link.name) && (
-                  <ChevronDown className="ml-1 h-4 w-4" />
+            <div
+              className="relative"
+              onMouseEnter={() => setActiveDropdown("product")}
+              onMouseLeave={() => setActiveDropdown(null)}
+            >
+              <button className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900">
+                Product
+                <ChevronDown className="ml-1 h-4 w-4" />
+              </button>
+              <AnimatePresence>
+                {activeDropdown === "product" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute left-0 mt-2 w-56 rounded-xl border border-gray-200 bg-white py-2 shadow-lg"
+                  >
+                    {productDropdown.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className="block px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                      >
+                        {item.name}
+                      </Link>
+                    ))}
+                  </motion.div>
                 )}
-              </Link>
-            ))}
+              </AnimatePresence>
+            </div>
+
+            <Link
+              href="#"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900"
+            >
+              Enterprise
+            </Link>
+            <Link
+              href="#"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900"
+            >
+              Pricing
+            </Link>
+
+            <div
+              className="relative"
+              onMouseEnter={() => setActiveDropdown("resources")}
+              onMouseLeave={() => setActiveDropdown(null)}
+            >
+              <button className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900">
+                Resources
+                <ChevronDown className="ml-1 h-4 w-4" />
+              </button>
+              <AnimatePresence>
+                {activeDropdown === "resources" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute left-0 mt-2 w-56 rounded-xl border border-gray-200 bg-white py-2 shadow-lg"
+                  >
+                    {resourcesDropdown.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className="block px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                      >
+                        {item.name}
+                      </Link>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
-          {/* Desktop CTA */}
           <div className="hidden items-center space-x-3 md:flex">
             <button
               onClick={onOpenLogin}
-              className="rounded-md px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900"
             >
               Log in
             </button>
             <button
               onClick={onOpenSignUp}
-              className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-gray-800 hover:shadow-md"
             >
               Get started
             </button>
           </div>
 
-          {/* Mobile menu button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="rounded-md p-2 text-neutral-700 transition-colors hover:bg-neutral-100 md:hidden"
+            className="rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100 md:hidden"
           >
             {isMobileMenuOpen ? (
               <X className="h-6 w-6" />
@@ -95,48 +163,67 @@ export default function Navbar({ onOpenSignUp, onOpenLogin }: NavbarProps) {
           </button>
         </div>
 
-        {/* Mobile Navigation */}
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="border-t border-neutral-200 py-4 md:hidden"
-          >
-            <div className="space-y-1">
-              {navLinks.map((link) => (
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="border-t border-gray-200 py-4 md:hidden"
+            >
+              <div className="space-y-1">
                 <Link
-                  key={link.name}
-                  href={link.href}
-                  className="block rounded-md px-3 py-2 text-base font-medium text-neutral-700 transition-colors hover:bg-neutral-100"
+                  href="#"
+                  className="block rounded-lg px-4 py-2 text-base font-medium text-gray-700 transition-colors hover:bg-gray-100"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  {link.name}
+                  Product
                 </Link>
-              ))}
-            </div>
-            <div className="mt-4 space-y-2 border-t border-neutral-200 pt-4">
-              <button
-                onClick={() => {
-                  onOpenLogin();
-                  setIsMobileMenuOpen(false);
-                }}
-                className="block w-full rounded-md px-3 py-2 text-left text-base font-medium text-neutral-700 transition-colors hover:bg-neutral-100"
-              >
-                Log in
-              </button>
-              <button
-                onClick={() => {
-                  onOpenSignUp();
-                  setIsMobileMenuOpen(false);
-                }}
-                className="block w-full rounded-md bg-black px-3 py-2 text-left text-base font-medium text-white transition-colors hover:bg-neutral-800"
-              >
-                Get started
-              </button>
-            </div>
-          </motion.div>
-        )}
+                <Link
+                  href="#"
+                  className="block rounded-lg px-4 py-2 text-base font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Enterprise
+                </Link>
+                <Link
+                  href="#"
+                  className="block rounded-lg px-4 py-2 text-base font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Pricing
+                </Link>
+                <Link
+                  href="#"
+                  className="block rounded-lg px-4 py-2 text-base font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Resources
+                </Link>
+              </div>
+              <div className="mt-4 space-y-2 border-t border-gray-200 pt-4">
+                <button
+                  onClick={() => {
+                    onOpenLogin();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="block w-full rounded-lg px-4 py-2 text-left text-base font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                >
+                  Log in
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenSignUp();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="block w-full rounded-lg bg-gray-900 px-4 py-2 text-left text-base font-medium text-white transition-colors hover:bg-gray-800"
+                >
+                  Get started
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </nav>
   );
