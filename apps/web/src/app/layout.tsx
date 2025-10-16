@@ -15,10 +15,60 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteTitle = "Nimu - AI Video & Audio Creation Platform";
+const siteDescription =
+  "Transform your ideas into professional videos and audio content in minutes. Nimu uses cutting-edge AI technology to power your creative workflow with multi-model support for Veo3, Runway, and Pika.";
+
 export const metadata: Metadata = {
-  title: "Nimu App - AI Video & Audio Generation",
-  description:
-    "All-in-one AI app for generating videos and audios using multiple AI providers",
+  title: {
+    default: siteTitle,
+    template: "%s | Nimu",
+  },
+  description: siteDescription,
+  keywords: [
+    "AI video generation",
+    "AI audio synthesis",
+    "video creation",
+    "Veo3",
+    "Runway",
+    "Pika",
+    "AI content creation",
+    "video editing",
+    "audio generation",
+    "creative AI tools",
+  ],
+  authors: [{ name: "Nimu Contributors" }],
+  creator: "Buddhsen Tripathi",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: siteTitle,
+    description: siteDescription,
+    url: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    siteName: "Nimu",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Nimu - AI Video & Audio Creation Platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+    images: ["/og-image.png"],
+  },
+  icons: {
+    icon: [
+      { url: "/logo.png", type: "image/png" },
+    ],
+  },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({

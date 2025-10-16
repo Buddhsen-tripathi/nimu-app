@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, X, ChevronDown } from "lucide-react";
 
 interface NavbarProps {
@@ -50,9 +51,13 @@ export default function Navbar({ onOpenSignUp, onOpenLogin }: NavbarProps) {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-gray-900 to-gray-700">
-                <span className="text-lg font-bold text-white">N</span>
-              </div>
+              <Image
+                src="/logo.png"
+                alt="Nimu Logo"
+                width={32}
+                height={32}
+                className="h-8 w-8"
+              />
               <span className="text-xl font-bold text-gray-900">Nimu</span>
             </Link>
           </div>
